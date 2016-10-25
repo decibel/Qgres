@@ -61,32 +61,32 @@ Not currently supported, but probably in the future.
 == Queue Management Commands
 INFO: In the future there will be a separate permission for queue management. For now, only a superuser can run certain commands.
 
-=== `queue\__create(queue_name, queue_type) RETURNS queue_id int`
+=== `queue__create(queue_name, queue_type) RETURNS queue_id int`
 Creates a new queue. Returned ID is guaranteed immutable for the life of the queue. *Superuser only.*
 
 queue_name:: Name for the queue, case-insensitive.
 queue_type:: Type of queue, must be one of 'Serial Publisher', 'SP', 'Serial Remover', or 'SR'.
 
-=== `queue\__drop(queue_name, [force])`
+=== `queue__drop(queue_name, [force])`
 Drops a queue. *Superuser only.*
 
 queue_name:: name of queue
 queue_id:: id of queue
 [force]:: if true, drop the queue even if it still has entries
 
-INFO: TODO: `queue\__rename()`
+INFO: TODO: `queue__rename()`
 
-=== `queue\__get(queue_name) RETURNS queue`
-=== `queue\__get(queue_id) RETURNS queue`
-=== `queue\__get_id(queue_name) RETURNS queue_id`
-Returns all information about a queue (or only the queue_id for `queue\__get_id()`). Throws an error if the queue doesn't exist.
+=== `queue__get(queue_name) RETURNS queue`
+=== `queue__get(queue_id) RETURNS queue`
+=== `queue__get_id(queue_name) RETURNS queue_id`
+Returns all information about a queue (or only the queue_id for `queue__get_id()`). Throws an error if the queue doesn't exist.
 
 See also: VIEW `queue`.
 
 == Serial Provider Commands
 These commands *only* work on SP queues.
 
-=== `consumer\__register(queue_name, consumer_name)`
+=== `consumer__register(queue_name, consumer_name)`
 Registers a new consumer. SP queues track what entries have been seen on a consumer-by-consumer basis. Entries will not be removed until seen by *all* registered consumers, so don't leave consumers un-attended!
 
 queue_name:: Name of queue, case-insensitive.
@@ -94,7 +94,7 @@ consumer_name:: Name for consumer, case-insensitive.
 
 NOTE: Unlike queues, there doesn't seem to be much need for renaming consumers, or providing an immutable ID. Drop me a line if you have a use case for it.
 
-=== `consumer\__drop(queue_name, consumer_name)`
+=== `consumer__drop(queue_name, consumer_name)`
 Drops a consumer.
 
 === `"Publish"({queue_name|queue_id}, [bytea], [jsonb], [text]) RETURNS sequence_number`
