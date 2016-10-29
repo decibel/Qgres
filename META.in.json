@@ -13,19 +13,19 @@
 
     "X_comment": "REQUIRED. Name of distribution.",
     "X_comment": "Note! Distribution names currently can't contain spaces.",
-    "name": "DISTRIBUTION_NAME",
+    "name": "Qgres",
 
     "X_comment": "REQUIRED. Version of the distribution. http://pgxn.org/spec/#version",
     "version": "0.1.0",
 
     "X_comment": "REQUIRED. Short description of distribution.",
-    "abstract": "ABSTRACT",
+    "abstract": "A simple queue for Postgres",
 
     "X_comment": "Optional. \"description\": A longer description of the distribution. http://pgxn.org/spec/#description",
-    "description": "",
+    "description": "Limits concurrent operations for simplicity.",
 
     "X_comment": "REQUIRED. Contact info for distribution maintainers. http://pgxn.org/spec/#maintainer",
-    "maintainer": [ "Your Name <Your@Email>" ],
+    "maintainer": [ "Jim Nasby <Jim.Nasby@BlueTreble.com>" ],
 
     "X_comment": "Optional. Status of distribution. Allowed values: unstable, testing, stable",
     "release_status": "unstable",
@@ -36,15 +36,15 @@
     "X_comment": "REQUIRED. Specifies extensions contained in this distribution. Each key is the name of an extension. http://pgxn.org/spec/#provides",
     "X_comment": "Note! Extension names currently can't contain spaces.",
     "provides": {
-        "EXTENSION_NAME": {
+        "qgres": {
             "X_comment": "REQUIRED. File containing extension.",
-            "file": "sql/file.sql",
+            "file": "sql/qgres.sql",
 
             "X_comment": "REQUIRED. Version the extension is at.",
             "version": "0.1.0",
 
             "X_comment": "Optional: \"abstract\": Description of the extension.",
-            "abstract": "ABSTRACT",
+            "abstract": "Simple queue system",
 
             "X_comment": "Optional: \"docfile\": filesystem path to document file for extension.",
             "docfile": "",
@@ -54,17 +54,17 @@
     },
 
     "X_comment": "Optional. \"tags\": LIST of TAGS for the distribution. http://pgxn.org/spec/#tags",
-    "tags": [ "", "" ],
+    "tags": [ "queue", "queuing", "PgQ" ],
 
     "X_comment": "Optional. \"resources\": Web resources available for this distribution. http://pgxn.org/spec/#resources",
     "resources": {
-        "homepage": "http://github.com/BlueTreble/test_factory/",
+        "homepage": "http://github.com/decibel/Qgres/",
         "bugtracker": {
-            "web": "http://github.com/BlueTreble/test_factory/issues"
+            "web": "http://github.com/decibel/Qgres/issues"
         },
         "repository": {
-            "url": "git://github.com/BlueTreble/test_factory.git",
-            "web": "http://github.com/BlueTreble/test_factory/",
+            "url": "git://github.com/decibel/Qgres.git",
+            "web": "http://github.com/decibel/Qgres/",
             "type": "git"
         }
     },
@@ -81,7 +81,8 @@
         },
         "runtime": {
             "requires": {
-                "plpgsql": 0
+                "plpgsql": 0,
+                "citext": 0
             }
         },
         "test": {
@@ -92,7 +93,7 @@
     },
 
     "X_comment": "Unusual. \"no_index\": Files/directories that should not be indexed. http://pgxn.org/spec/#no_index",
-    "no_index": "",
+    "no_index": "pgxntool",
 
     "X_comment": "Unusual. Package/tool used to generate this file.",
     "generated_by": "pgxntool https://github.com/decibel/pgxntool",

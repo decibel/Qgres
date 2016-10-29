@@ -1,0 +1,17 @@
+\set ECHO none
+ role__create 
+--------------
+ 
+(1 row)
+
+ role__create 
+--------------
+ 
+(1 row)
+
+ role__create 
+--------------
+ 
+(1 row)
+
+# TRANSACTION INTENTIONALLY LEFT OPEN!

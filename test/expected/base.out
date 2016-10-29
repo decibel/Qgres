@@ -1,0 +1,38 @@
+\unset ECHO
+1..35
+ok 1 - Function _queue_type__sanitize(text) should be STABLE
+ok 2 - Function _queue_type__sanitize(text) should be strict
+ok 3 - Function _queue_type__sanitize(text) shouldn't be security definer
+ok 4 - Function _queue_type__sanitize(text) shouldn't have any permissions defined
+ok 5 - Check _queue_type__sanitize('SP')
+ok 6 - Check _queue_type__sanitize('Serial Publisher')
+ok 7 - Check _queue_type__sanitize('SR')
+ok 8 - Check _queue_type__sanitize('Serial Remover')
+ok 9 - Check _queue_type__sanitize('sp')
+ok 10 - Check _queue_type__sanitize('serial publisher')
+ok 11 - Check _queue_type__sanitize('sr')
+ok 12 - Check _queue_type__sanitize('serial remover')
+ok 13 - Column _queue(queue_id) should be a primary key
+ok 14 - Column _queue(queue_name) should have a unique constraint
+ok 15 - Column _queue.queue_name should be NOT NULL
+ok 16 - Column _queue.queue_name should be type citext
+ok 17 - Trigger _queue_dml should call _queue_dml()
+ok 18 - Column _sp_entry_id(queue_id) should be a primary key
+ok 19 - Column _sp_entry_id.entry_id should be NOT NULL
+ok 20 - _sp_entry_id(queue_id) should reference _queue(queue_id)
+ok 21 - Function queue__create(citext, queue_type) should be VOLATILE
+ok 22 - Function queue__create(citext, queue_type) should not be strict
+ok 23 - Function queue__create(citext, queue_type) should be security definer
+ok 24 - Role decibel should be granted EXECUTE on function queue__create(citext, queue_type)
+ok 25 - Role pg_signal_backend should be granted no privileges on function queue__create(citext, queue_type)
+ok 26 - Role qgres__queue_maintain should be granted EXECUTE on function queue__create(citext, queue_type)
+ok 27 - Role qgres__queue_insert should be granted no privileges on function queue__create(citext, queue_type)
+ok 28 - Role qgres__queue_delete should be granted no privileges on function queue__create(citext, queue_type)
+ok 29 - Function queue__create(citext, text) should be VOLATILE
+ok 30 - Function queue__create(citext, text) should not be strict
+ok 31 - Function queue__create(citext, text) shouldn't be security definer
+ok 32 - Function queue__create(citext, text) shouldn't have any permissions defined
+ok 33 - Creation of SP queue works
+ok 34 - Creation of SR queue works
+ok 35 - Duplicate creation produces nice error message
+# TRANSACTION INTENTIONALLY LEFT OPEN!
