@@ -1,5 +1,5 @@
 \unset ECHO
-1..31
+1..63
 ok 1 - Function _queue_type__sanitize(text) should be STABLE
 ok 2 - Function _queue_type__sanitize(text) should be strict
 ok 3 - Function _queue_type__sanitize(text) shouldn't be security definer
@@ -17,18 +17,52 @@ ok 14 - Column _queue(queue_name) should have a unique constraint
 ok 15 - Column _queue.queue_name should be NOT NULL
 ok 16 - Column _queue.queue_name should be type citext
 ok 17 - Trigger _queue_dml should call _queue_dml()
-ok 18 - Column _sp_entry_id(queue_id) should be a primary key
-ok 19 - Column _sp_entry_id.entry_id should be NOT NULL
-ok 20 - _sp_entry_id(queue_id) should reference _queue(queue_id)
-ok 21 - Function queue__create(citext, queue_type) should be VOLATILE
-ok 22 - Function queue__create(citext, queue_type) should not be strict
-ok 23 - Function queue__create(citext, queue_type) should be security definer
-ok 24 - Check EXECUTE rights on function queue__create(citext, queue_type)
-ok 25 - Function queue__create(citext, text) should be VOLATILE
-ok 26 - Function queue__create(citext, text) should not be strict
-ok 27 - Function queue__create(citext, text) shouldn't be security definer
-ok 28 - Function queue__create(citext, text) shouldn't have any permissions defined
-ok 29 - Creation of SP queue works
-ok 30 - Creation of SR queue works
-ok 31 - Duplicate creation produces nice error message
+ok 18 - table "_queue" should not have any permissions defined
+ok 19 - Column _sp_entry_id(queue_id) should be a primary key
+ok 20 - Column _sp_entry_id.entry_id should be NOT NULL
+ok 21 - _sp_entry_id(queue_id) should reference _queue(queue_id)
+ok 22 - table "_sp_entry_id" should not have any permissions defined
+ok 23 - Function queue__create(citext, queue_type) should be VOLATILE
+ok 24 - Function queue__create(citext, queue_type) should not be strict
+ok 25 - Function queue__create(citext, queue_type) should be security definer
+ok 26 - Check EXECUTE rights on function queue__create(citext, queue_type)
+ok 27 - Function queue__create(citext, text) should be VOLATILE
+ok 28 - Function queue__create(citext, text) should not be strict
+ok 29 - Function queue__create(citext, text) shouldn't be security definer
+ok 30 - Function queue__create(citext, text) shouldn't have any permissions defined
+ok 31 - Creation of SP queue works
+ok 32 - Creation of SR queue works
+ok 33 - Duplicate creation produces nice error message
+ok 34 - Verify contents of view "queue"
+ok 35 - Role public should be granted SELECT on table queue
+ok 36 - Expected number of base queue entries
+ok 37 - Function queue__get(citext) should be STABLE
+ok 38 - Function queue__get(citext) should not be strict
+ok 39 - Function queue__get(citext) shouldn't be security definer
+ok 40 - Function queue__get(citext) shouldn't have any permissions defined
+ok 41 - Function queue__get(integer) should be STABLE
+ok 42 - Function queue__get(integer) should not be strict
+ok 43 - Function queue__get(integer) shouldn't be security definer
+ok 44 - Function queue__get(integer) shouldn't have any permissions defined
+ok 45 - Function queue__get_id(citext) should be STABLE
+ok 46 - Function queue__get_id(citext) should not be strict
+ok 47 - Function queue__get_id(citext) shouldn't be security definer
+ok 48 - Function queue__get_id(citext) shouldn't have any permissions defined
+ok 49 - queue__get(queue_id)
+ok 50 - queue__get(queue_id)
+ok 51 - queue__get(queue_name)
+ok 52 - queue__get(queue_name)
+ok 53 - queue__get_id(queue_name)
+ok 54 - queue__get_id(queue_name)
+ok 55 - Function queue__drop(integer, boolean) should be VOLATILE
+ok 56 - Function queue__drop(integer, boolean) should not be strict
+ok 57 - Function queue__drop(integer, boolean) should be security definer
+ok 58 - Check EXECUTE rights on function queue__drop(integer, boolean)
+ok 59 - Function queue__drop(citext, boolean) should be VOLATILE
+ok 60 - Function queue__drop(citext, boolean) should not be strict
+ok 61 - Function queue__drop(citext, boolean) shouldn't be security definer
+ok 62 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
+ok 63 - Dropping non-existent queue throws an error
+ok 64 - Dropping non-existent queue throws an error
+# Looks like you planned 63 tests but ran 64
 # TRANSACTION INTENTIONALLY LEFT OPEN!
