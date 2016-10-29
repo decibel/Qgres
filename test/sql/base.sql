@@ -18,7 +18,7 @@ SELECT plan((
   -- API functions
   + ( -- queue__create()
     pg_temp.function_test_count('public')
-    + pg_temp.function_test_count('qgres__queue_maintain')
+    + pg_temp.function_test_count('qgres__queue_manage')
     + 2 -- \i test/helpers/queue__create.sql
     + 1 -- error test
   )
@@ -111,7 +111,7 @@ SELECT pg_temp.function_test(
   , 'volatile'
   , strict := false
   , definer := true
-  , execute_roles := 'qgres__queue_maintain,' || current_user
+  , execute_roles := 'qgres__queue_manage,' || current_user
 );
 SELECT pg_temp.function_test(
   'queue__create'

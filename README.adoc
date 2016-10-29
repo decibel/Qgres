@@ -62,18 +62,24 @@ INFO: There are some storage tricks that can be added in the future to improve p
 Not currently supported, but probably in the future.
 
 == Command Reference
+=== Roles
+There are 3 roles defined for queue management and usage. These should be granted to other roles to allow them to interact with queues.
+
+`qgres__queue_manage`:: Grants EXECUTE on queue management functions
+`qgres__queue_insert`:: Grants EXECUTE on event creation functions
+`qgres__queue_delete`:: Grants EXECUTE on event consumption functions
 
 === Queue Management Commands
 INFO: In the future there will be a separate permission for queue management. For now, only a superuser can run certain commands.
 
 ==== `queue__create(queue_name, queue_type) RETURNS queue_id int`
-Creates a new queue. Returned ID is guaranteed immutable for the life of the queue. *Superuser only.*
+Creates a new queue. Returned ID is guaranteed immutable for the life of the queue. *Queue manager role only.*
 
 queue_name:: Name for the queue, case-insensitive.
 queue_type:: Type of queue, must be one of 'Serial Publisher', 'SP', 'Serial Remover', or 'SR'.
 
 ==== `queue__drop(queue_name, [force])`
-Drops a queue. *Superuser only.*
+Drops a queue. *Queue manager role only.*
 
 queue_name:: name of queue
 queue_id:: id of queue

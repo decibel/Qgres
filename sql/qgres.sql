@@ -10,7 +10,7 @@ BEGIN
   END IF;
 END
 $body$;
-SELECT qgres_temp.role__create( 'qgres__queue_maintain' );
+SELECT qgres_temp.role__create( 'qgres__queue_manage' );
 SELECT qgres_temp.role__create( 'qgres__queue_insert' );
 SELECT qgres_temp.role__create( 'qgres__queue_delete' );
 DROP FUNCTION qgres_temp.role__create(name);
@@ -104,7 +104,7 @@ REVOKE ALL ON FUNCTION queue__create(
 GRANT EXECUTE ON FUNCTION queue__create(
   queue_name  _queue.queue_name%TYPE
   , queue_type _queue.queue_type%TYPE
-) TO qgres__queue_maintain;
+) TO qgres__queue_manage;
 COMMENT ON FUNCTION queue__create(
   queue_name  _queue.queue_name%TYPE
   , queue_type _queue.queue_type%TYPE
