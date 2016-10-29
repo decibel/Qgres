@@ -1,5 +1,7 @@
 include pgxntool/base.mk
 
+testdeps: pg_acl
+
 -- TODO: Remove this after merging pgxntool 0.2.1+
 testdeps: $(TEST_SQL_FILES) $(TEST_SOURCE_FILES)
 
@@ -17,3 +19,9 @@ $(DESTDIR)$(datadir)/extension/citext.control:
 	@echo ERROR: extension citext is not installed 1>&2
 	@echo citext is required by Qgres. Please install it. 1>&2
 	@exit 1
+
+.PHONY: pg_acl
+pg_acl: $(DESTDIR)$(datadir)/extension/acl.control
+
+$(DESTDIR)$(datadir)/extension/acl.control:
+	pgxn install --unstable pg_acl

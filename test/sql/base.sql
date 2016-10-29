@@ -111,7 +111,7 @@ SELECT pg_temp.function_test(
   , 'volatile'
   , strict := false
   , definer := true
-  , execute_roles := 'qgres__queue_maintain'
+  , execute_roles := 'qgres__queue_maintain,' || current_user
 );
 SELECT pg_temp.function_test(
   'queue__create'

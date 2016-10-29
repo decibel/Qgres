@@ -8,7 +8,7 @@ CREATE FUNCTION pg_temp.function_test(
 ) RETURNS SETOF text LANGUAGE plpgsql AS $body$
 DECLARE
   c_args CONSTANT name[] := string_to_array(args, ',')::regtype[]::name[];
-  c_execute_roles CONSTANT name[] := string_to_array(execute_roles, ',')::name[];
+  c_execute_roles CONSTANT name[] := string_to_array(nullif(execute_roles,'public'), ',')::name[];
 
   fsig CONSTANT text := format('%I(%s)', fname, array_to_string(c_args, ', '));
   proc pg_proc;
@@ -38,24 +38,18 @@ BEGIN
       , format( 'Function %s shouldn''t be security definer', fsig )
     );
   END IF;
-  IF c_execute_roles = array['public'::name] THEN
+  IF c_execute_roles IS NULL THEN
     RETURN NEXT is(
       (proc).proacl
       , NULL
       , format( 'Function %s shouldn''t have any permissions defined', fsig )
     );
-  ELSIF c_execute_roles IS NOT NULL THEN
-    RETURN QUERY SELECT function_privs_are(
-      fname
-      , c_args
-      , rolname
-      , CASE WHEN
-            rolname = ANY(c_execute_roles || array[current_user])
-          THEN array['EXECUTE']
-        ELSE NULL
-      END
-    ) FROM pg_roles
-    ;
+  ELSE
+    RETURN NEXT bag_eq(
+      format($$SELECT grantee::name FROM unnest(acl(%L::aclitem[])) u WHERE rights = array['EXECUTE'::acl_right]$$, (proc).proacl)
+      , c_execute_roles
+      , 'Check EXECUTE rights on function ' || fsig
+    );
   END IF;
 END
 $body$;
@@ -66,13 +60,7 @@ CREATE FUNCTION pg_temp.function_test_count(
 DECLARE
   c_execute_roles CONSTANT name[] := string_to_array(execute_roles, ',')::name[];
 BEGIN
-  IF c_execute_roles = array['public'::name] THEN
-    RETURN 3+1;
-  ELSIF c_execute_roles IS NOT NULL THEN
-    RETURN 3 + (SELECT count(*)::int FROM pg_roles);
-  ELSE
-    RETURN 3;
-  END IF;
+  RETURN 4;
 END
 $body$;
 
