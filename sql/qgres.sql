@@ -77,9 +77,59 @@ CREATE TABLE _sp_entry_id(
 );
 
 
+CREATE OR REPLACE VIEW queue AS
+  SELECT queue_id, queue_name, queue_type
+    FROM _queue
+;
+GRANT SELECT ON queue TO PUBLIC;
+
 /*
  * API FUNCTIONS
  */
+CREATE FUNCTION queue__get(
+  queue_name  _queue.queue_name%TYPE
+) RETURNS queue LANGUAGE plpgsql STABLE AS $body$
+DECLARE
+  p_queue_name ALIAS FOR queue_name;
+  r record;
+BEGIN
+  SELECT INTO STRICT r
+      *
+    FROM queue q
+    WHERE q.queue_name = p_queue_name
+  ;
+  RETURN r;
+EXCEPTION WHEN no_data_found THEN
+  RAISE 'queue "%" does not exist', queue_name
+    USING ERRCODE = 'no_data_found'
+  ;
+END
+$body$;
+CREATE FUNCTION queue__get(
+  queue_id  _queue.queue_id%TYPE
+) RETURNS queue LANGUAGE plpgsql STABLE AS $body$
+DECLARE
+  p_queue_id ALIAS FOR queue_id;
+  r record;
+BEGIN
+  SELECT INTO STRICT r
+      *
+    FROM queue q
+    WHERE q.queue_id = p_queue_id
+  ;
+  RETURN r;
+EXCEPTION WHEN no_data_found THEN
+  RAISE 'queue_id % does not exist', queue_id
+    USING ERRCODE = 'no_data_found'
+  ;
+END
+$body$;
+CREATE FUNCTION queue__get_id(
+  queue_name  _queue.queue_name%TYPE
+) RETURNS int LANGUAGE sql STABLE AS $body$
+SELECT (queue__get(queue_name)).queue_id
+$body$;
+
 CREATE FUNCTION queue__create(
   queue_name  _queue.queue_name%TYPE
   , queue_type _queue.queue_type%TYPE
@@ -117,6 +167,58 @@ CREATE FUNCTION queue__create(
 ) LANGUAGE SQL AS $body$
 SELECT queue__create(queue_name, _queue_type__sanitize(queue_type))
 $body$;
-  
+
+
+CREATE FUNCTION queue__drop(
+  queue_id  _queue.queue_id%TYPE
+  , force boolean DEFAULT false
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $body$
+DECLARE
+  p_queue_id ALIAS FOR queue_id;
+BEGIN
+  DELETE FROM _queue
+    WHERE _queue.queue_id = p_queue_id
+  ;
+  IF NOT found THEN
+    RAISE 'queue_id % does not exist', queue_id
+      USING ERRCODE = 'no_data_found'
+    ;
+  END IF;
+EXCEPTION
+-- TODO: handle case when events exist
+  WHEN unique_violation THEN
+    -- dependent_objects_still_exist
+    RAISE EXCEPTION 'queue "%" already exists', queue_id
+      USING HINT = 'Remember that queue names are case insensitive.'
+        , ERRCODE = 'unique_violation'
+    ;
+END
+$body$;
+REVOKE ALL ON FUNCTION queue__drop(
+  queue_id  _queue.queue_id%TYPE
+  , boolean
+) FROM public;
+GRANT EXECUTE ON FUNCTION queue__drop(
+  queue_id  _queue.queue_id%TYPE
+  , boolean
+) TO qgres__queue_manage;
+COMMENT ON FUNCTION queue__drop(
+  queue_id  _queue.queue_id%TYPE
+  , boolean
+) IS $$Drops a queue. Raises an error if the queue does not exist, or if there are events in the queue (unless force is true).$$;
+
+
+CREATE FUNCTION queue__drop(
+  queue_name  _queue.queue_name%TYPE
+  , force boolean DEFAULT false
+) RETURNS void LANGUAGE sql AS $body$
+SELECT queue__drop(queue__get_id(queue_name), force)
+$body$;
+COMMENT ON FUNCTION queue__drop(
+  queue_name  _queue.queue_name%TYPE
+  , boolean
+) IS $$Drops a queue. Raises an error if the queue does not exist, or if there are events in the queue (unless force is true).$$;
+
+
 DROP SCHEMA qgres_temp; 
 -- vi: expandtab ts=2 sw=2
