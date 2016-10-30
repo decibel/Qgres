@@ -1,5 +1,5 @@
 \unset ECHO
-1..63
+1..80
 ok 1 - Function _queue_type__sanitize(text) should be STABLE
 ok 2 - Function _queue_type__sanitize(text) should be strict
 ok 3 - Function _queue_type__sanitize(text) shouldn't be security definer
@@ -17,52 +17,67 @@ ok 14 - Column _queue(queue_name) should have a unique constraint
 ok 15 - Column _queue.queue_name should be NOT NULL
 ok 16 - Column _queue.queue_name should be type citext
 ok 17 - Trigger _queue_dml should call _queue_dml()
-ok 18 - table "_queue" should not have any permissions defined
-ok 19 - Column _sp_entry_id(queue_id) should be a primary key
-ok 20 - Column _sp_entry_id.entry_id should be NOT NULL
-ok 21 - _sp_entry_id(queue_id) should reference _queue(queue_id)
-ok 22 - table "_sp_entry_id" should not have any permissions defined
-ok 23 - Function queue__create(citext, queue_type) should be VOLATILE
-ok 24 - Function queue__create(citext, queue_type) should not be strict
-ok 25 - Function queue__create(citext, queue_type) should be security definer
-ok 26 - Check EXECUTE rights on function queue__create(citext, queue_type)
-ok 27 - Function queue__create(citext, text) should be VOLATILE
-ok 28 - Function queue__create(citext, text) should not be strict
-ok 29 - Function queue__create(citext, text) shouldn't be security definer
-ok 30 - Function queue__create(citext, text) shouldn't have any permissions defined
-ok 31 - Creation of SP queue works
-ok 32 - Creation of SR queue works
-ok 33 - Duplicate creation produces nice error message
-ok 34 - Verify contents of view "queue"
-ok 35 - Role public should be granted SELECT on table queue
-ok 36 - Expected number of base queue entries
-ok 37 - Function queue__get(citext) should be STABLE
-ok 38 - Function queue__get(citext) should not be strict
-ok 39 - Function queue__get(citext) shouldn't be security definer
-ok 40 - Function queue__get(citext) shouldn't have any permissions defined
-ok 41 - Function queue__get(integer) should be STABLE
-ok 42 - Function queue__get(integer) should not be strict
-ok 43 - Function queue__get(integer) shouldn't be security definer
-ok 44 - Function queue__get(integer) shouldn't have any permissions defined
-ok 45 - Function queue__get_id(citext) should be STABLE
-ok 46 - Function queue__get_id(citext) should not be strict
-ok 47 - Function queue__get_id(citext) shouldn't be security definer
-ok 48 - Function queue__get_id(citext) shouldn't have any permissions defined
-ok 49 - queue__get(queue_id)
-ok 50 - queue__get(queue_id)
-ok 51 - queue__get(queue_name)
-ok 52 - queue__get(queue_name)
-ok 53 - queue__get_id(queue_name)
-ok 54 - queue__get_id(queue_name)
-ok 55 - Function queue__drop(integer, boolean) should be VOLATILE
-ok 56 - Function queue__drop(integer, boolean) should not be strict
-ok 57 - Function queue__drop(integer, boolean) should be security definer
-ok 58 - Check EXECUTE rights on function queue__drop(integer, boolean)
-ok 59 - Function queue__drop(citext, boolean) should be VOLATILE
-ok 60 - Function queue__drop(citext, boolean) should not be strict
-ok 61 - Function queue__drop(citext, boolean) shouldn't be security definer
-ok 62 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
-ok 63 - Dropping non-existent queue throws an error
-ok 64 - Dropping non-existent queue throws an error
-# Looks like you planned 63 tests but ran 64
+ok 18 - Trigger update should call _tg_not_allowed()
+ok 19 - table "_queue" should not have any permissions defined
+ok 20 - Column _sp_entry_id(queue_id) should be a primary key
+ok 21 - Column _sp_entry_id.entry_id should be NOT NULL
+ok 22 - _sp_entry_id(queue_id) should reference _queue(queue_id)
+ok 23 - Trigger verify_sp_queue__insert should call _tg_sp_entry_id__verify_sp_queue()
+ok 24 - Trigger update_queue_id should call _tg_not_allowed()
+ok 25 - table "_sp_entry_id" should not have any permissions defined
+ok 26 - Columns _sp_consumer(queue_id, consumer_name) should be a primary key
+ok 27 - _sp_consumer(queue_id) should reference _sp_entry_id(queue_id)
+ok 28 - Trigger update should call _tg_not_allowed()
+ok 29 - table "_sp_consumer" should not have any permissions defined
+ok 30 - Function queue__create(citext, queue_type) should be VOLATILE
+ok 31 - Function queue__create(citext, queue_type) should not be strict
+ok 32 - Function queue__create(citext, queue_type) should be security definer
+ok 33 - Check EXECUTE rights on function queue__create(citext, queue_type)
+ok 34 - Function queue__create(citext, text) should be VOLATILE
+ok 35 - Function queue__create(citext, text) should not be strict
+ok 36 - Function queue__create(citext, text) shouldn't be security definer
+ok 37 - Function queue__create(citext, text) shouldn't have any permissions defined
+ok 38 - Creation of SP queue works
+ok 39 - Creation of SR queue works
+ok 40 - Duplicate creation produces nice error message
+ok 41 - Verify contents of view "queue"
+ok 42 - Role public should be granted SELECT on table queue
+ok 43 - Expected number of base queue entries
+ok 44 - Function queue__get(citext) should be STABLE
+ok 45 - Function queue__get(citext) should not be strict
+ok 46 - Function queue__get(citext) shouldn't be security definer
+ok 47 - Function queue__get(citext) shouldn't have any permissions defined
+ok 48 - Function queue__get(integer) should be STABLE
+ok 49 - Function queue__get(integer) should not be strict
+ok 50 - Function queue__get(integer) shouldn't be security definer
+ok 51 - Function queue__get(integer) shouldn't have any permissions defined
+ok 52 - Function queue__get_id(citext) should be STABLE
+ok 53 - Function queue__get_id(citext) should not be strict
+ok 54 - Function queue__get_id(citext) shouldn't be security definer
+ok 55 - Function queue__get_id(citext) shouldn't have any permissions defined
+ok 56 - queue__get(queue_id)
+ok 57 - queue__get(queue_id)
+ok 58 - queue__get(queue_name)
+ok 59 - queue__get(queue_name)
+ok 60 - queue__get_id(queue_name)
+ok 61 - queue__get_id(queue_name)
+ok 62 - Function consumer__register(citext, citext) should be VOLATILE
+ok 63 - Function consumer__register(citext, citext) should not be strict
+ok 64 - Function consumer__register(citext, citext) should be security definer
+ok 65 - Check EXECUTE rights on function consumer__register(citext, citext)
+ok 66 - Register 1st test consumer
+ok 67 - Register 2nd test consumer
+ok 68 - registering duplicate consumer should error
+ok 69 - registering consumer on non-existent queue should error
+ok 70 - registering consumer on SR queue should error
+ok 71 - Function queue__drop(integer, boolean) should be VOLATILE
+ok 72 - Function queue__drop(integer, boolean) should not be strict
+ok 73 - Function queue__drop(integer, boolean) should be security definer
+ok 74 - Check EXECUTE rights on function queue__drop(integer, boolean)
+ok 75 - Function queue__drop(citext, boolean) should be VOLATILE
+ok 76 - Function queue__drop(citext, boolean) should not be strict
+ok 77 - Function queue__drop(citext, boolean) shouldn't be security definer
+ok 78 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
+ok 79 - Dropping non-existent queue throws an error
+ok 80 - Dropping non-existent queue throws an error
 # TRANSACTION INTENTIONALLY LEFT OPEN!

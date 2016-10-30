@@ -12,8 +12,9 @@ SELECT plan((
   )
 
   -- table tests
-  + 6 -- _queue
-  + 4 -- _sp_entry_id
+  + 7 -- _queue
+  + 6 -- _sp_entry_id
+  + 4 -- _sp_consumer
 
   -- view tests
   + 2
@@ -26,6 +27,12 @@ SELECT plan((
     + 1 -- error test
   )
 
+  + ( -- consumer__register
+    pg_temp.function_test_count('qgres__queue_insert')
+    + 2 -- 2 good consumers
+    + 3 -- 3 exceptions
+  )
+
   + ( -- queue__get*()
     1 -- sanity check
     + 3 * pg_temp.function_test_count('public')
@@ -35,7 +42,7 @@ SELECT plan((
   + ( -- queue__drop()
     pg_temp.function_test_count('qgres__queue_manage')
     + pg_temp.function_test_count('public')
-    + 1 -- non-existent queue
+    + 2 -- non-existent queue
   )
 )::int);
 
@@ -74,8 +81,9 @@ SELECT is(
 ;
 
 /*
- * _queue table tests
+ * TABLES
  */
+-- _queue table tests
 SELECT col_is_pk(
   '_queue'
   , 'queue_id'
@@ -98,15 +106,18 @@ SELECT trigger_is(
   , '_queue_dml'
   , '_queue_dml'
 );
+SELECT trigger_is(
+  '_queue'
+  , 'update'
+  , '_tg_not_allowed'
+);
 SELECT is(
   (SELECT relacl FROM pg_class WHERE oid = '_queue'::regclass)
   , NULL
   , 'table "_queue" should not have any permissions defined'
 );
 
-/*
- * _sp_entry_id
- */
+-- _sp_entry_id
 SELECT col_is_pk(
   '_sp_entry_id'
   , 'queue_id'
@@ -121,10 +132,42 @@ SELECT fk_ok(
   , '_queue'
   , 'queue_id'
 );
+SELECT trigger_is(
+  '_sp_entry_id'
+  , 'verify_sp_queue__insert'
+  , '_tg_sp_entry_id__verify_sp_queue'
+);
+SELECT trigger_is(
+  '_sp_entry_id'
+  , 'update_queue_id'
+  , '_tg_not_allowed'
+);
 SELECT is(
   (SELECT relacl FROM pg_class WHERE oid = '_sp_entry_id'::regclass)
   , NULL
   , 'table "_sp_entry_id" should not have any permissions defined'
+);
+
+-- _sp_consumer
+SELECT col_is_pk(
+  '_sp_consumer'
+  , array['queue_id', 'consumer_name']
+);
+SELECT fk_ok(
+  '_sp_consumer'
+  , 'queue_id'
+  , '_sp_entry_id'
+  , 'queue_id'
+);
+SELECT trigger_is(
+  '_sp_consumer'
+  , 'update'
+  , '_tg_not_allowed'
+);
+SELECT is(
+  (SELECT relacl FROM pg_class WHERE oid = '_sp_consumer'::regclass)
+  , NULL
+  , 'table "_sp_consumer" should not have any permissions defined'
 );
 
 /*
@@ -219,6 +262,44 @@ SELECT is(
     )
   FROM queue
 ;
+
+/*
+ * consumer__register()
+ */
+SELECT pg_temp.function_test(
+  'consumer__register'
+  , 'citext,citext'
+  , 'volatile'
+  , strict := false
+  , definer := true
+  , execute_roles := 'qgres__queue_delete,' || current_user
+);
+SELECT lives_ok(
+  $$SELECT consumer__register('test SP queue', 'test consumer')$$
+  , 'Register 1st test consumer'
+);
+SELECT lives_ok(
+  $$SELECT consumer__register('test SP queue', 'test consumer 2')$$
+  , 'Register 2nd test consumer'
+);
+SELECT throws_ok(
+  $$SELECT consumer__register('test SP queue', 'test consumer')$$
+  , '23505'
+  , 'consumer "test consumer" on queue "test SP queue" already exists'
+  , 'registering duplicate consumer should error'
+);
+SELECT throws_ok(
+  $$SELECT consumer__register('queue that should not exist', 'test consumer')$$
+  , 'P0002'
+  , 'queue "queue that should not exist" does not exist'
+  , 'registering consumer on non-existent queue should error'
+);
+SELECT throws_ok(
+  $$SELECT consumer__register('test SR queue', 'test consumer')$$
+  , '22023'
+  , 'consumers may only be registered on "Serial Publisher" queues'
+  , 'registering consumer on SR queue should error'
+);
 
 /*
  * queue__drop()

@@ -33,6 +33,13 @@ COMMENT ON FUNCTION _queue_type__sanitize(
   text
 ) IS $$Used to standardize input to the queue_type ENUM.$$;
 
+CREATE FUNCTION _tg_not_allowed(
+) RETURNS trigger LANGUAGE plpgsql AS $body$
+BEGIN
+  RAISE '% to % is not allowed', TG_OP, TG_RELID::regclass;
+END
+$body$;
+
 /*
  * TABLES
  */
@@ -70,11 +77,40 @@ $body$;
 CREATE TRIGGER _queue_dml AFTER INSERT OR UPDATE OR DELETE ON _queue
   FOR EACH ROW EXECUTE PROCEDURE _queue_dml()
 ;
+CREATE TRIGGER update AFTER UPDATE ON _queue
+  FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
+;
 
 CREATE TABLE _sp_entry_id(
   queue_id      int     NOT NULL PRIMARY KEY REFERENCES _queue ON DELETE CASCADE
   , entry_id    int     NOT NULL
 );
+CREATE FUNCTION _tg_sp_entry_id__verify_sp_queue(
+) RETURNS trigger LANGUAGE plpgsql AS $body$
+BEGIN
+  IF (queue__get(NEW.queue_id)).queue_type <> 'Serial Publisher' THEN
+    RAISE 'only valid for Serial Publisher queues';
+  END IF;
+  RETURN NULL;
+END
+$body$;
+CREATE TRIGGER verify_sp_queue__insert AFTER INSERT ON _sp_entry_id
+  FOR EACH ROW EXECUTE PROCEDURE _tg_sp_entry_id__verify_sp_queue()
+;
+CREATE TRIGGER update_queue_id AFTER UPDATE OF queue_id ON _sp_entry_id
+  FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
+;
+
+CREATE TABLE _sp_consumer(
+  queue_id        int     NOT NULL REFERENCES _sp_entry_id -- Ensures this is an sp queue
+  , consumer_name citext  NOT NULL
+  , CONSTRAINT _sp_consumer__pk_queue_id__consumer_name PRIMARY KEY( queue_id, consumer_name )
+  -- TODO: move to a separate table for better performance
+  , next_entry_id int     NOT NULL
+);
+CREATE TRIGGER update AFTER UPDATE OF queue_id, consumer_name ON _sp_consumer
+  FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
+;
 
 
 CREATE OR REPLACE VIEW queue AS
@@ -219,6 +255,50 @@ COMMENT ON FUNCTION queue__drop(
   , boolean
 ) IS $$Drops a queue. Raises an error if the queue does not exist, or if there are events in the queue (unless force is true).$$;
 
+
+CREATE OR REPLACE FUNCTION consumer__register(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $body$
+DECLARE
+  r_queue _queue;
+BEGIN
+  r_queue := queue__get(queue_name); -- sanity-check's queue_name for us
+  IF r_queue.queue_type <> 'Serial Publisher' THEN
+    RAISE 'consumers may only be registered on "Serial Publisher" queues'
+      USING ERRCODE = 'invalid_parameter_value'
+    ;
+  END IF;
+  INSERT INTO _sp_consumer(queue_id, consumer_name, next_entry_id)
+    VALUES(
+      r_queue.queue_id
+      , consumer_name
+      , (SELECT entry_id
+          FROM _sp_entry_id
+          WHERE queue_id = r_queue.queue_id
+          FOR UPDATE
+        )
+    )
+  ;
+EXCEPTION WHEN unique_violation THEN
+  RAISE EXCEPTION 'consumer "%" on queue "%" already exists', consumer_name, queue_name
+    USING HINT = 'Remember that queue names and consumer names are case insensitive.'
+      , ERRCODE = 'unique_violation'
+  ;
+END
+$body$;
+REVOKE ALL ON FUNCTION consumer__register(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+) FROM public;
+GRANT EXECUTE ON FUNCTION consumer__register(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+) TO qgres__queue_delete;
+COMMENT ON FUNCTION consumer__register(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+) IS $$Register a consumer on a queue.$$;
 
 DROP SCHEMA qgres_temp; 
 -- vi: expandtab ts=2 sw=2
