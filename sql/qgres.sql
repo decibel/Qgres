@@ -255,7 +255,11 @@ COMMENT ON FUNCTION queue__drop(
   , boolean
 ) IS $$Drops a queue. Raises an error if the queue does not exist, or if there are events in the queue (unless force is true).$$;
 
+/*
+ * CONSUMER functions
+ */
 
+-- Register
 CREATE OR REPLACE FUNCTION consumer__register(
   queue_name _queue.queue_name%TYPE
   , consumer_name _sp_consumer.consumer_name%TYPE
@@ -299,6 +303,48 @@ COMMENT ON FUNCTION consumer__register(
   queue_name _queue.queue_name%TYPE
   , consumer_name _sp_consumer.consumer_name%TYPE
 ) IS $$Register a consumer on a queue.$$;
+
+-- DROP
+CREATE OR REPLACE FUNCTION consumer__drop(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $body$
+DECLARE
+  p_consumer_name ALIAS FOR consumer_name;
+
+  r_queue _queue;
+BEGIN
+  r_queue := queue__get(queue_name); -- sanity-check's queue_name for us
+  IF r_queue.queue_type <> 'Serial Publisher' THEN
+    RAISE 'consumers may only be dropped on "Serial Publisher" queues'
+      USING ERRCODE = 'invalid_parameter_value'
+    ;
+  END IF;
+  DELETE FROM _sp_consumer
+    WHERE queue_id = r_queue.queue_id
+      AND _sp_consumer.consumer_name = p_consumer_name
+  ;
+  IF NOT FOUND THEN
+    RAISE 'consumer "%" on queue "%" is not registered', consumer_name, queue_name
+      USING ERRCODE = 'no_data_found'
+    ;
+  END IF;
+END
+$body$;
+REVOKE ALL ON FUNCTION consumer__drop(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+) FROM public;
+GRANT EXECUTE ON FUNCTION consumer__drop(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+) TO qgres__queue_delete;
+COMMENT ON FUNCTION consumer__drop(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+) IS $$Register a consumer on a queue.$$;
+
+
 
 DROP SCHEMA qgres_temp; 
 -- vi: expandtab ts=2 sw=2

@@ -33,6 +33,12 @@ SELECT plan((
     + 3 -- 3 exceptions
   )
 
+  + ( -- consumer__drop
+    pg_temp.function_test_count('qgres__queue_insert')
+    + 2 -- register then drop
+    + 2 -- exceptions
+  )
+
   + ( -- queue__get*()
     1 -- sanity check
     + 3 * pg_temp.function_test_count('public')
@@ -299,6 +305,38 @@ SELECT throws_ok(
   , '22023'
   , 'consumers may only be registered on "Serial Publisher" queues'
   , 'registering consumer on SR queue should error'
+);
+
+/*
+ * consumer__drop()
+ */
+SELECT pg_temp.function_test(
+  'consumer__drop'
+  , 'citext,citext'
+  , 'volatile'
+  , strict := false
+  , definer := true
+  , execute_roles := 'qgres__queue_delete,' || current_user
+);
+SELECT lives_ok(
+  $$SELECT consumer__register('test SP queue', 'test consumer for drop')$$
+  , 'Register test consumer for drop'
+);
+SELECT lives_ok(
+  $$SELECT consumer__drop('test SP queue', 'test consumer for drop')$$
+  , 'Drop test consumer'
+);
+SELECT throws_ok(
+  $$SELECT consumer__drop('queue that should not exist', 'test consumer')$$
+  , 'P0002'
+  , 'queue "queue that should not exist" does not exist'
+  , 'dropping consumer on non-existent queue should error'
+);
+SELECT throws_ok(
+  $$SELECT consumer__drop('test SR queue', 'test consumer')$$
+  , '22023'
+  , 'consumers may only be dropped on "Serial Publisher" queues'
+  , 'dropping consumer on SR queue should error'
 );
 
 /*
