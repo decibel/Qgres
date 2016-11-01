@@ -76,7 +76,7 @@ BEGIN
     WHEN 'INSERT' THEN
       CASE NEW.queue_type 
         WHEN 'Serial Publisher' THEN
-          INSERT INTO _sp_entry_id(queue_id, entry_id)
+          INSERT INTO _sp_next_sequence_number(queue_id, next_sequence_number)
             VALUES(NEW.queue_id, 0)
           ;
         WHEN 'Serial Remover' THEN
@@ -99,11 +99,11 @@ CREATE TRIGGER update AFTER UPDATE ON _queue
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
 ;
 
-CREATE TABLE _sp_entry_id(
+CREATE TABLE _sp_next_sequence_number(
   queue_id      int     NOT NULL PRIMARY KEY REFERENCES _queue ON DELETE CASCADE
-  , entry_id    int     NOT NULL
+  , next_sequence_number    int     NOT NULL
 );
-CREATE OR REPLACE FUNCTION _tg_sp_entry_id__verify_sp_queue(
+CREATE OR REPLACE FUNCTION _tg_sp_next_sequence_number__verify_sp_queue(
 ) RETURNS trigger LANGUAGE plpgsql AS $body$
 BEGIN
   IF (queue__get(NEW.queue_id)).queue_type <> 'Serial Publisher' THEN
@@ -112,25 +112,25 @@ BEGIN
   RETURN NULL;
 END
 $body$;
-CREATE TRIGGER verify_sp_queue__insert AFTER INSERT ON _sp_entry_id
-  FOR EACH ROW EXECUTE PROCEDURE _tg_sp_entry_id__verify_sp_queue()
+CREATE TRIGGER verify_sp_queue__insert AFTER INSERT ON _sp_next_sequence_number
+  FOR EACH ROW EXECUTE PROCEDURE _tg_sp_next_sequence_number__verify_sp_queue()
 ;
-CREATE TRIGGER update_queue_id AFTER UPDATE OF queue_id ON _sp_entry_id
+CREATE TRIGGER update_queue_id AFTER UPDATE OF queue_id ON _sp_next_sequence_number
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
 ;
 
 CREATE TABLE _sp_consumer(
-  queue_id        int     NOT NULL REFERENCES _sp_entry_id -- Ensures this is an sp queue
+  queue_id        int     NOT NULL REFERENCES _sp_next_sequence_number -- Ensures this is an sp queue
   , consumer_name citext  NOT NULL
   , CONSTRAINT _sp_consumer__pk_queue_id__consumer_name PRIMARY KEY( queue_id, consumer_name )
   -- TODO: move to a separate table for better performance
-  , next_entry_id int     NOT NULL
+  , next_next_sequence_number int     NOT NULL
 );
 CREATE TRIGGER update AFTER UPDATE OF queue_id, consumer_name ON _sp_consumer
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
 ;
 CREATE TABLE _sp_entry(
-  queue_id        int     NOT NULL REFERENCES _sp_entry_id -- Ensures this is an sp queue
+  queue_id        int     NOT NULL REFERENCES _sp_next_sequence_number -- Ensures this is an sp queue
   , sequence_number int   NOT NULL
   , CONSTRAINT _sp_consumer__pk_queue_id__sequence_number PRIMARY KEY( queue_id, sequence_number )
   , entry queue_entry     NOT NULL
@@ -300,12 +300,12 @@ BEGIN
       USING ERRCODE = 'invalid_parameter_value'
     ;
   END IF;
-  INSERT INTO _sp_consumer(queue_id, consumer_name, next_entry_id)
+  INSERT INTO _sp_consumer(queue_id, consumer_name, next_next_sequence_number)
     VALUES(
       r_queue.queue_id
       , consumer_name
-      , (SELECT entry_id
-          FROM _sp_entry_id
+      , (SELECT next_sequence_number
+          FROM _sp_next_sequence_number
           WHERE queue_id = r_queue.queue_id
           FOR UPDATE
         )
@@ -378,17 +378,17 @@ COMMENT ON FUNCTION consumer__drop(
 CREATE OR REPLACE FUNCTION "_Publish"(
   queue_id _queue.queue_id%TYPE
   , entry queue_entry
-  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+  , OUT sequence_number _sp_next_sequence_number.next_sequence_number%TYPE
 ) SECURITY DEFINER LANGUAGE plpgsql AS $body$
 DECLARE
   p_queue_id ALIAS FOR queue_id;
 
   rowcount bigint;
 BEGIN
-  UPDATE _sp_entry_id AS sp
-    SET entry_id = entry_id + 1
+  UPDATE _sp_next_sequence_number AS sp
+    SET next_sequence_number = next_sequence_number + 1
     WHERE sp.queue_id = p_queue_id
-    RETURNING entry_id - 1 -- RETURNING gives the NEW value
+    RETURNING next_sequence_number - 1 -- RETURNING gives the NEW value
     INTO sequence_number
   ;
   -- We make these checks the hard way to avoid the cost of starting a subtransaction
@@ -411,13 +411,13 @@ BEGIN
               , HINT = 'Perhaps you want to use the add() function instead?'
           ;
         ELSE
-          RAISE 'no record in _sp_entry_id for queue_id %', p_queue_id
+          RAISE 'no record in _sp_next_sequence_number for queue_id %', p_queue_id
             USING HINT = 'This should never happen; please open an issue on GitHub.'
           ;
         END IF;
       END;
     WHEN rowcount > 1 THEN
-      RAISE 'multiple records in _sp_entry_id for queue_id %', p_queue_id
+      RAISE 'multiple records in _sp_next_sequence_number for queue_id %', p_queue_id
         USING HINT = 'This should never happen; please open an issue on GitHub.'
       ;
     ELSE
@@ -432,12 +432,12 @@ $body$;
 REVOKE ALL ON FUNCTION "_Publish"(
   queue_id _queue.queue_id%TYPE
   , entry queue_entry
-  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+  , OUT sequence_number _sp_next_sequence_number.next_sequence_number%TYPE
 ) FROM public;
 GRANT EXECUTE ON FUNCTION "_Publish"(
   queue_id _queue.queue_id%TYPE
   , entry queue_entry
-  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+  , OUT sequence_number _sp_next_sequence_number.next_sequence_number%TYPE
 ) TO qgres__queue_insert;
 
 CREATE OR REPLACE FUNCTION "Publish"(
@@ -445,7 +445,7 @@ CREATE OR REPLACE FUNCTION "Publish"(
   , bytea bytea
   , jsonb jsonb
   , text text
-  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+  , OUT sequence_number _sp_next_sequence_number.next_sequence_number%TYPE
 ) LANGUAGE sql AS $body$
 SELECT "_Publish"(queue_id, queue_entry(bytea := bytea, jsonb := jsonb, text := text))
 $body$;
@@ -454,7 +454,7 @@ CREATE OR REPLACE FUNCTION "Publish"(
   , bytea bytea
   , jsonb jsonb
   , text text
-  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+  , OUT sequence_number _sp_next_sequence_number.next_sequence_number%TYPE
 ) LANGUAGE sql AS $body$
 SELECT "_Publish"(queue__get_id(queue_name), queue_entry(bytea := bytea, jsonb := jsonb, text := text))
 $body$;
@@ -468,7 +468,7 @@ DECLARE
 CREATE OR REPLACE FUNCTION "Publish"(
   %1$s
   , %3$s %3$s
-  , OUT sequence_number _sp_entry_id.entry_id%%TYPE
+  , OUT sequence_number _sp_next_sequence_number.next_sequence_number%%TYPE
 ) LANGUAGE sql AS $body$
 SELECT "_Publish"(%2$s, queue_entry(%3$s := %3$s))
 $body$;
@@ -486,8 +486,6 @@ SELECT qgres_temp.build_publish( first_arg, call, data_type )
   , unnest('{bytea,jsonb,text}'::regtype[]) data_type
 ;
 DROP FUNCTION qgres_temp.build_publish(text,text,regtype); 
-
--- TODO: s/entry_id/next_sequence_number/g
 
 DROP SCHEMA qgres_temp; 
 -- vi: expandtab ts=2 sw=2

@@ -25,18 +25,18 @@ ok 22 - Column _queue.queue_name should be type citext
 ok 23 - Trigger _queue_dml should call _queue_dml()
 ok 24 - Trigger update should call _tg_not_allowed()
 ok 25 - table "_queue" should not have any permissions defined
-ok 26 - Column _sp_entry_id(queue_id) should be a primary key
-ok 27 - Column _sp_entry_id.entry_id should be NOT NULL
-ok 28 - _sp_entry_id(queue_id) should reference _queue(queue_id)
-ok 29 - Trigger verify_sp_queue__insert should call _tg_sp_entry_id__verify_sp_queue()
+ok 26 - Column _sp_next_sequence_number(queue_id) should be a primary key
+ok 27 - Column _sp_next_sequence_number.next_sequence_number should be NOT NULL
+ok 28 - _sp_next_sequence_number(queue_id) should reference _queue(queue_id)
+ok 29 - Trigger verify_sp_queue__insert should call _tg_sp_next_sequence_number__verify_sp_queue()
 ok 30 - Trigger update_queue_id should call _tg_not_allowed()
-ok 31 - table "_sp_entry_id" should not have any permissions defined
+ok 31 - table "_sp_next_sequence_number" should not have any permissions defined
 ok 32 - Columns _sp_consumer(queue_id, consumer_name) should be a primary key
-ok 33 - _sp_consumer(queue_id) should reference _sp_entry_id(queue_id)
+ok 33 - _sp_consumer(queue_id) should reference _sp_next_sequence_number(queue_id)
 ok 34 - Trigger update should call _tg_not_allowed()
 ok 35 - table "_sp_consumer" should not have any permissions defined
 ok 36 - Columns _sp_entry(queue_id, sequence_number) should be a primary key
-ok 37 - _sp_entry(queue_id) should reference _sp_entry_id(queue_id)
+ok 37 - _sp_entry(queue_id) should reference _sp_next_sequence_number(queue_id)
 ok 38 - Trigger update should call _tg_not_allowed()
 ok 39 - table "_sp_entry" should not have any permissions defined
 ok 40 - Function queue__create(citext, queue_type) should be VOLATILE

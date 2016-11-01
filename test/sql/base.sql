@@ -18,7 +18,7 @@ SELECT plan((
 
   -- table tests
   + 7 -- _queue
-  + 6 -- _sp_entry_id
+  + 6 -- _sp_next_sequence_number
   + 4 -- _sp_consumer
   + 4 -- _sp_entry
 
@@ -160,35 +160,35 @@ SELECT is(
   , 'table "_queue" should not have any permissions defined'
 );
 
--- _sp_entry_id
+-- _sp_next_sequence_number
 SELECT col_is_pk(
-  '_sp_entry_id'
+  '_sp_next_sequence_number'
   , 'queue_id'
 );
 SELECT col_not_null(
-  '_sp_entry_id'
-  , 'entry_id'
+  '_sp_next_sequence_number'
+  , 'next_sequence_number'
 );
 SELECT fk_ok(
-  '_sp_entry_id'
+  '_sp_next_sequence_number'
   , 'queue_id'
   , '_queue'
   , 'queue_id'
 );
 SELECT trigger_is(
-  '_sp_entry_id'
+  '_sp_next_sequence_number'
   , 'verify_sp_queue__insert'
-  , '_tg_sp_entry_id__verify_sp_queue'
+  , '_tg_sp_next_sequence_number__verify_sp_queue'
 );
 SELECT trigger_is(
-  '_sp_entry_id'
+  '_sp_next_sequence_number'
   , 'update_queue_id'
   , '_tg_not_allowed'
 );
 SELECT is(
-  (SELECT relacl FROM pg_class WHERE oid = '_sp_entry_id'::regclass)
+  (SELECT relacl FROM pg_class WHERE oid = '_sp_next_sequence_number'::regclass)
   , NULL
-  , 'table "_sp_entry_id" should not have any permissions defined'
+  , 'table "_sp_next_sequence_number" should not have any permissions defined'
 );
 
 -- _sp_consumer
@@ -199,7 +199,7 @@ SELECT col_is_pk(
 SELECT fk_ok(
   '_sp_consumer'
   , 'queue_id'
-  , '_sp_entry_id'
+  , '_sp_next_sequence_number'
   , 'queue_id'
 );
 SELECT trigger_is(
@@ -221,7 +221,7 @@ SELECT col_is_pk(
 SELECT fk_ok(
   '_sp_entry'
   , 'queue_id'
-  , '_sp_entry_id'
+  , '_sp_next_sequence_number'
   , 'queue_id'
 );
 SELECT trigger_is(
