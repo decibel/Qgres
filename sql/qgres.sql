@@ -135,6 +135,36 @@ CREATE TABLE _sp_entry(
   , CONSTRAINT _sp_consumer__pk_queue_id__sequence_number PRIMARY KEY( queue_id, sequence_number )
   , entry queue_entry     NOT NULL
 );
+CREATE OR REPLACE FUNCTION _tg_sp_entry__sequence_number(
+) RETURNS trigger LANGUAGE plpgsql AS $body$
+BEGIN
+  IF NEW.sequence_number IS DISTINCT FROM
+    -- See below as well!
+    (SELECT next_sequence_number - 1
+        FROM _sp_next_sequence_number nsn
+        WHERE nsn.queue_id = NEW.queue_id
+      )
+  THEN
+    RAISE 'sequence number error'
+      USING DETAIL = format(
+          'NEW.queue_id = %L, NEW.sequence_number = %L, expected = %L'
+          , NEW.queue_id
+          , NEW.sequence_number
+          -- Duplicated for performance reasons (avoid storing plpgsql variables)
+          , (SELECT next_sequence_number - 1
+            FROM _sp_next_sequence_number nsn
+            WHERE nsn.queue_id = NEW.queue_id
+          )
+        )
+      , HINT = 'This should never happen; please open an issue on GitHub.'
+    ;
+  END IF;
+  RETURN NULL;
+END
+$body$;
+CREATE TRIGGER insert AFTER INSERT ON _sp_entry
+  FOR EACH ROW EXECUTE PROCEDURE _tg_sp_entry__sequence_number()
+;
 CREATE TRIGGER update AFTER UPDATE ON _sp_entry
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
 ;

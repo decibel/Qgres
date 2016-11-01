@@ -20,7 +20,7 @@ SELECT plan((
   + 7 -- _queue
   + 6 -- _sp_next_sequence_number
   + 4 -- _sp_consumer
-  + 4 -- _sp_entry
+  + 5 -- _sp_entry
 
   -- view tests
   + 2
@@ -223,6 +223,11 @@ SELECT fk_ok(
   , 'queue_id'
   , '_sp_next_sequence_number'
   , 'queue_id'
+);
+SELECT trigger_is(
+  '_sp_entry'
+  , 'insert'
+  , '_tg_sp_entry__sequence_number'
 );
 SELECT trigger_is(
   '_sp_entry'
