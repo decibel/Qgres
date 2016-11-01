@@ -85,11 +85,19 @@ SELECT plan((
     + 4 -- test not NULL
   ) -- +11 = 217
 
+  + ( -- Remove
+     2 * pg_temp.function_test_count('qgres__queue_delete')
+    + 2 -- exceptions
+    + 2 -- sanity check, temp table
+    + 3 -- remove 2 entries, verify
+    + 3 -- remove remaining, verify
+  ) -- +18 = 235
+
   + ( -- queue__drop()
     pg_temp.function_test_count('qgres__queue_manage')
     + pg_temp.function_test_count('public')
     + 2 -- non-existent queue
-  ) -- +10 = 227
+  ) -- +10 = 245
 )::int);
 
 /*
@@ -756,6 +764,81 @@ SELECT lives_ok(
     , ('text', 'text')
   ) v(value, datatype)
 ;
+
+/*
+ * Remove
+ */
+SELECT pg_temp.function_test(
+  'Remove'
+  , 'int,int'
+  , 'volatile'
+  , strict := false
+  , definer := true
+  , execute_roles := 'qgres__queue_delete,' || current_user
+);
+SELECT pg_temp.function_test(
+  'Remove'
+  , 'citext,int'
+  , 'volatile'
+  , strict := false
+  , definer := false
+  , execute_roles := 'qgres__queue_delete,' || current_user
+);
+SELECT throws_ok(
+  $$SELECT "Remove"(-999999)$$
+  , 'P0002'
+  , 'queue_id -999999 does not exist'
+  , '"Remove"() with non-existent queue_id throws error'
+);
+SELECT throws_ok(
+  $$SELECT "Remove"('no such queue')$$
+  , 'P0002'
+  , 'queue "no such queue" does not exist'
+  , '"Remove"() with non-existent queue_name throws error'
+);
+-- Sanity-check
+SELECT is(
+  (SELECT count(*)::int FROM _sr_entry WHERE queue_id = queue__get_id('test SR queue'))
+  , 8
+  , 'Sanity-check test queue'
+);
+SELECT lives_ok(
+  $$CREATE TEMP TABLE sr_entries AS
+      SELECT (entry).bytea, (entry).jsonb, (entry).text
+        FROM _sr_entry
+        WHERE queue_id = queue__get_id('test SR queue')
+  $$
+  , 'Create temp table with existing entries'
+);
+SELECT lives_ok(
+  $$CREATE TEMP TABLE removed AS SELECT * FROM "Remove"('test SR queue', 2)$$
+  , 'Remove 2 entries'
+);
+SELECT is(
+  (SELECT count(*)::int FROM removed)
+  , 2
+  , 'Verify removed count'
+);
+SELECT is(
+  (SELECT count(*)::int FROM _sr_entry WHERE queue_id = queue__get_id('test SR queue'))
+  , 6
+  , 'Verify queue count'
+);
+SELECT lives_ok(
+  $$INSERT INTO removed SELECT * FROM "Remove"('test SR queue')$$
+  , 'Remove remaining entries'
+);
+SELECT is(
+  (SELECT count(*)::int FROM _sr_entry WHERE queue_id = queue__get_id('test SR queue'))
+  , 0
+  , 'Verify queue is empty'
+);
+SELECT bag_eq(
+  $$SELECT * FROM removed$$
+  , $$SELECT * FROM sr_entries$$
+  , 'Verify removed entries'
+);
+
 
 /*
  * queue__drop()

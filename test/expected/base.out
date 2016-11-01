@@ -1,5 +1,5 @@
 \unset ECHO
-1..227
+1..245
 ok 1 - Function queue_entry(bytea, jsonb, text) should be IMMUTABLE
 ok 2 - Function queue_entry(bytea, jsonb, text) should not be strict
 ok 3 - Function queue_entry(bytea, jsonb, text) shouldn't be security definer
@@ -217,14 +217,32 @@ ok 214 - SELECT "add"('test SR queue', '0xdeadbeef', '{"key":"jsonb"}'::jsonb, '
 ok 215 - SELECT "add"('test SR queue', '0xdeadbeef'::bytea)
 ok 216 - SELECT "add"('test SR queue', '{"key":"jsonb"}'::jsonb)
 ok 217 - SELECT "add"('test SR queue', 'text'::text)
-ok 218 - Function queue__drop(integer, boolean) should be VOLATILE
-ok 219 - Function queue__drop(integer, boolean) should not be strict
-ok 220 - Function queue__drop(integer, boolean) should be security definer
-ok 221 - Check EXECUTE rights on function queue__drop(integer, boolean)
-ok 222 - Function queue__drop(citext, boolean) should be VOLATILE
-ok 223 - Function queue__drop(citext, boolean) should not be strict
-ok 224 - Function queue__drop(citext, boolean) shouldn't be security definer
-ok 225 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
-ok 226 - Dropping non-existent queue throws an error
-ok 227 - Dropping non-existent queue throws an error
+ok 218 - Function "Remove"(integer, integer) should be VOLATILE
+ok 219 - Function "Remove"(integer, integer) should not be strict
+ok 220 - Function "Remove"(integer, integer) should be security definer
+ok 221 - Check EXECUTE rights on function "Remove"(integer, integer)
+ok 222 - Function "Remove"(citext, integer) should be VOLATILE
+ok 223 - Function "Remove"(citext, integer) should not be strict
+ok 224 - Function "Remove"(citext, integer) shouldn't be security definer
+ok 225 - Check EXECUTE rights on function "Remove"(citext, integer)
+ok 226 - "Remove"() with non-existent queue_id throws error
+ok 227 - "Remove"() with non-existent queue_name throws error
+ok 228 - Sanity-check test queue
+ok 229 - Create temp table with existing entries
+ok 230 - Remove 2 entries
+ok 231 - Verify removed count
+ok 232 - Verify queue count
+ok 233 - Remove remaining entries
+ok 234 - Verify queue is empty
+ok 235 - Verify removed entries
+ok 236 - Function queue__drop(integer, boolean) should be VOLATILE
+ok 237 - Function queue__drop(integer, boolean) should not be strict
+ok 238 - Function queue__drop(integer, boolean) should be security definer
+ok 239 - Check EXECUTE rights on function queue__drop(integer, boolean)
+ok 240 - Function queue__drop(citext, boolean) should be VOLATILE
+ok 241 - Function queue__drop(citext, boolean) should not be strict
+ok 242 - Function queue__drop(citext, boolean) shouldn't be security definer
+ok 243 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
+ok 244 - Dropping non-existent queue throws an error
+ok 245 - Dropping non-existent queue throws an error
 # TRANSACTION INTENTIONALLY LEFT OPEN!

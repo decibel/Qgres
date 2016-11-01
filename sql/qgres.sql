@@ -774,5 +774,72 @@ GRANT EXECUTE ON FUNCTION consume(
   , row_limit int
 ) TO qgres__queue_delete;
 
+/*
+ * Remove
+ */
+CREATE OR REPLACE FUNCTION "Remove"(
+  queue_id _queue.queue_id%TYPE
+  , row_limit int DEFAULT 2^31-1
+) RETURNS TABLE(
+  bytea bytea
+  , jsonb jsonb
+  , text text
+) LANGUAGE plpgsql SECURITY DEFINER AS $body$
+DECLARE
+  p_queue_id ALIAS FOR queue_id;
+
+  r_queue queue;
+BEGIN
+  -- Throws error for non-existent queue
+  r_queue := queue__get(p_queue_id);
+
+  IF r_queue.queue_type <> 'Serial Remover' THEN
+    RAISE 'consume() may only be called on Serial Remover queues'
+      USING ERRCODE = 'invalid_parameter_value'
+        , DETAIL = format( 'queue_id %L is type %L', p_queue_id, r_queue.queue_type )
+        , HINT = 'Perhaps you want to use the consume() function instead?'
+    ;
+  END IF;
+
+  RETURN QUERY
+    DELETE FROM _sr_entry e1
+      USING (
+        SELECT ctid
+          FROM _sr_entry
+          LIMIT row_limit
+          FOR UPDATE
+      ) e2
+      WHERE e1.ctid = e2.ctid
+      RETURNING (entry).bytea, (entry).jsonb, (entry).text
+  ;
+END
+$body$;
+REVOKE ALL ON FUNCTION "Remove"(
+  queue_id _queue.queue_id%TYPE
+  , row_limit int
+) FROM public;
+GRANT EXECUTE ON FUNCTION "Remove"(
+  queue_id _queue.queue_id%TYPE
+  , row_limit int
+) TO qgres__queue_delete;
+CREATE OR REPLACE FUNCTION "Remove"(
+  queue_name _queue.queue_name%TYPE
+  , row_limit int DEFAULT 2^31-1
+) RETURNS TABLE(
+  bytea bytea
+  , jsonb jsonb
+  , text text
+) LANGUAGE sql AS $body$
+SELECT "Remove"(queue__get_id(queue_name), row_limit)
+$body$;
+REVOKE ALL ON FUNCTION "Remove"(
+  queue_name _queue.queue_name%TYPE
+  , row_limit int
+) FROM public;
+GRANT EXECUTE ON FUNCTION "Remove"(
+  queue_name _queue.queue_name%TYPE
+  , row_limit int
+) TO qgres__queue_delete;
+
 DROP SCHEMA qgres_temp; 
 -- vi: expandtab ts=2 sw=2
