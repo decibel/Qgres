@@ -1,5 +1,5 @@
 \unset ECHO
-1..180
+1..227
 ok 1 - Function queue_entry(bytea, jsonb, text) should be IMMUTABLE
 ok 2 - Function queue_entry(bytea, jsonb, text) should not be strict
 ok 3 - Function queue_entry(bytea, jsonb, text) shouldn't be security definer
@@ -170,14 +170,61 @@ ok 167 - Verify results from consumer 'post-NULLs'
 ok 168 - Verify queue entries still exist
 ok 169 - Drop consumer 'empty'
 ok 170 - Verify queue entries are removed after dropping consumer
-ok 171 - Function queue__drop(integer, boolean) should be VOLATILE
-ok 172 - Function queue__drop(integer, boolean) should not be strict
-ok 173 - Function queue__drop(integer, boolean) should be security definer
-ok 174 - Check EXECUTE rights on function queue__drop(integer, boolean)
-ok 175 - Function queue__drop(citext, boolean) should be VOLATILE
-ok 176 - Function queue__drop(citext, boolean) should not be strict
-ok 177 - Function queue__drop(citext, boolean) shouldn't be security definer
-ok 178 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
-ok 179 - Dropping non-existent queue throws an error
-ok 180 - Dropping non-existent queue throws an error
+ok 171 - Function _add(integer, queue_entry) should be VOLATILE
+ok 172 - Function _add(integer, queue_entry) should not be strict
+ok 173 - Function _add(integer, queue_entry) should be security definer
+ok 174 - Check EXECUTE rights on function _add(integer, queue_entry)
+ok 175 - Function add(integer, bytea, jsonb, text) should be VOLATILE
+ok 176 - Function add(integer, bytea, jsonb, text) should not be strict
+ok 177 - Function add(integer, bytea, jsonb, text) shouldn't be security definer
+ok 178 - Function add(integer, bytea, jsonb, text) shouldn't have any permissions defined
+ok 179 - Function add(citext, bytea, jsonb, text) should be VOLATILE
+ok 180 - Function add(citext, bytea, jsonb, text) should not be strict
+ok 181 - Function add(citext, bytea, jsonb, text) shouldn't be security definer
+ok 182 - Function add(citext, bytea, jsonb, text) shouldn't have any permissions defined
+ok 183 - Function add(integer, bytea) should be VOLATILE
+ok 184 - Function add(integer, bytea) should not be strict
+ok 185 - Function add(integer, bytea) shouldn't be security definer
+ok 186 - Function add(integer, bytea) shouldn't have any permissions defined
+ok 187 - Function add(citext, bytea) should be VOLATILE
+ok 188 - Function add(citext, bytea) should not be strict
+ok 189 - Function add(citext, bytea) shouldn't be security definer
+ok 190 - Function add(citext, bytea) shouldn't have any permissions defined
+ok 191 - Function add(integer, jsonb) should be VOLATILE
+ok 192 - Function add(integer, jsonb) should not be strict
+ok 193 - Function add(integer, jsonb) shouldn't be security definer
+ok 194 - Function add(integer, jsonb) shouldn't have any permissions defined
+ok 195 - Function add(citext, jsonb) should be VOLATILE
+ok 196 - Function add(citext, jsonb) should not be strict
+ok 197 - Function add(citext, jsonb) shouldn't be security definer
+ok 198 - Function add(citext, jsonb) shouldn't have any permissions defined
+ok 199 - Function add(integer, text) should be VOLATILE
+ok 200 - Function add(integer, text) should not be strict
+ok 201 - Function add(integer, text) shouldn't be security definer
+ok 202 - Function add(integer, text) shouldn't have any permissions defined
+ok 203 - Function add(citext, text) should be VOLATILE
+ok 204 - Function add(citext, text) should not be strict
+ok 205 - Function add(citext, text) shouldn't be security definer
+ok 206 - Function add(citext, text) shouldn't have any permissions defined
+ok 207 - _add with non-existent queue_id throws error
+ok 208 - add with non-existent queue_id throws error
+ok 209 - adding to "queue that should not exist" throws error
+ok 210 - SELECT "add"('test SR queue', NULL, NULL, NULL)
+ok 211 - SELECT "add"('test SR queue', NULL::bytea)
+ok 212 - SELECT "add"('test SR queue', NULL::jsonb)
+ok 213 - SELECT "add"('test SR queue', NULL::text)
+ok 214 - SELECT "add"('test SR queue', '0xdeadbeef', '{"key":"jsonb"}'::jsonb, 'text')
+ok 215 - SELECT "add"('test SR queue', '0xdeadbeef'::bytea)
+ok 216 - SELECT "add"('test SR queue', '{"key":"jsonb"}'::jsonb)
+ok 217 - SELECT "add"('test SR queue', 'text'::text)
+ok 218 - Function queue__drop(integer, boolean) should be VOLATILE
+ok 219 - Function queue__drop(integer, boolean) should not be strict
+ok 220 - Function queue__drop(integer, boolean) should be security definer
+ok 221 - Check EXECUTE rights on function queue__drop(integer, boolean)
+ok 222 - Function queue__drop(citext, boolean) should be VOLATILE
+ok 223 - Function queue__drop(citext, boolean) should not be strict
+ok 224 - Function queue__drop(citext, boolean) shouldn't be security definer
+ok 225 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
+ok 226 - Dropping non-existent queue throws an error
+ok 227 - Dropping non-existent queue throws an error
 # TRANSACTION INTENTIONALLY LEFT OPEN!

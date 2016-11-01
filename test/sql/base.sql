@@ -76,11 +76,20 @@ SELECT plan((
     + 2 -- Drop consumer; verify
   ) -- +29 = 170
 
+  + ( -- add
+    pg_temp.function_test_count('qgres__queue_insert')
+    + 2 * 4 * pg_temp.function_test_count('qgres__queue_insert')
+      -- +36 = 206
+    + 3 -- exceptions
+    + 4 -- test NULLs
+    + 4 -- test not NULL
+  ) -- +11 = 217
+
   + ( -- queue__drop()
     pg_temp.function_test_count('qgres__queue_manage')
     + pg_temp.function_test_count('public')
     + 2 -- non-existent queue
-  ) -- +10 = 180
+  ) -- +10 = 227
 )::int);
 
 /*
@@ -658,6 +667,95 @@ SELECT is(
   , 'Verify queue entries are removed after dropping consumer'
 );
 
+/*
+ * add()
+ */
+-- The main publish function
+SELECT pg_temp.function_test(
+  '_add'
+  , 'int,queue_entry'
+  , 'volatile'
+  , strict := false
+  , definer := true
+  , execute_roles := 'qgres__queue_insert,' || current_user
+);
+
+/*
+ * We need to test a 2x4 matrix of (queue_name|queue_id) and the various data
+ * options.
+ */
+SELECT pg_temp.function_test(
+      'add'
+      , queue_arg || ',' || data_args
+      , 'volatile'
+      , strict := false
+      , definer := false
+      , execute_roles := 'public'
+    )
+  FROM (VALUES ('int'),('citext')) q(queue_arg)
+    , (VALUES
+      ('bytea,jsonb,text')
+      , ('bytea')
+      , ('jsonb')
+      , ('text')
+    ) d(data_args)
+;
+SELECT throws_ok(
+  $$SELECT "_add"(-999999, queue_entry() )$$
+  , 'P0002'
+  , 'queue_id -999999 does not exist'
+  , '_add with non-existent queue_id throws error'
+);
+SELECT throws_ok(
+  $$SELECT "add"(-999999, NULL::text )$$
+  , 'P0002'
+  , 'queue_id -999999 does not exist'
+  , 'add with non-existent queue_id throws error'
+);
+SELECT throws_ok(
+  $$SELECT "add"('queue that should not exist', NULL::text )$$
+  , 'P0002'
+  , 'queue "queue that should not exist" does not exist'
+  , 'adding to "queue that should not exist" throws error'
+);
+-- TEST NULLS
+SELECT lives_ok(
+  $$SELECT "add"('test SR queue', NULL, NULL, NULL)$$
+  , $$SELECT "add"('test SR queue', NULL, NULL, NULL)$$
+);
+-- Test the 3 single arg versions
+SELECT lives_ok(
+      format(
+        $$SELECT "add"('test SR queue', NULL::%I)$$
+        , arg_type
+      )
+      , format(
+        $$SELECT "add"('test SR queue', NULL::%I)$$
+        , arg_type
+      )
+    )
+  FROM unnest('{bytea,jsonb,text}'::regtype[]) u(arg_type)
+;
+SELECT lives_ok(
+  $$SELECT "add"('test SR queue', '0xdeadbeef', '{"key":"jsonb"}'::jsonb, 'text')$$
+  , $$SELECT "add"('test SR queue', '0xdeadbeef', '{"key":"jsonb"}'::jsonb, 'text')$$
+);
+SELECT lives_ok(
+      format(
+        $$SELECT "add"('test SR queue', %L::%I)$$
+        , value, datatype
+      )
+      , format(
+        $$SELECT "add"('test SR queue', %L::%I)$$
+        , value, datatype
+      )
+    )
+  FROM (VALUES
+    ('0xdeadbeef'::text, 'bytea'::regtype)
+    , ('{"key":"jsonb"}', 'jsonb')
+    , ('text', 'text')
+  ) v(value, datatype)
+;
 
 /*
  * queue__drop()

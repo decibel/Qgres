@@ -191,6 +191,27 @@ REVOKE ALL ON FUNCTION _sp_trim(
   queue_id  _queue.queue_id%TYPE
 ) FROM public;
 
+CREATE TABLE _sr_entry(
+  queue_id          int             NOT NULL REFERENCES _queue
+  , entry           queue_entry     NOT NULL
+);
+CREATE OR REPLACE FUNCTION _tg_sr_entry__verify_sp_queue(
+) RETURNS trigger LANGUAGE plpgsql AS $body$
+BEGIN
+  IF (queue__get(NEW.queue_id)).queue_type <> 'Serial Remover' THEN
+    RAISE 'only valid for Serial Remover queues';
+  END IF;
+  RETURN NULL;
+END
+$body$;
+CREATE TRIGGER verify_sr_entry__insert AFTER INSERT ON _sr_entry
+  FOR EACH ROW EXECUTE PROCEDURE _tg_sr_entry__verify_sp_queue()
+;
+CREATE TRIGGER update AFTER UPDATE ON _sr_entry
+  FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
+;
+
+
 CREATE OR REPLACE VIEW queue AS
   SELECT queue_id, queue_name, queue_type
     FROM _queue
@@ -540,6 +561,84 @@ SELECT qgres_temp.build_publish( first_arg, call, data_type )
   , unnest('{bytea,jsonb,text}'::regtype[]) data_type
 ;
 DROP FUNCTION qgres_temp.build_publish(text,text,regtype); 
+
+/*
+ * "add"()
+ */
+-- This is our "base" function; all others are wrappers
+CREATE OR REPLACE FUNCTION "_add"(
+  queue_id _queue.queue_id%TYPE
+  , entry queue_entry
+) RETURNS void SECURITY DEFINER LANGUAGE plpgsql AS $body$
+DECLARE
+  p_queue_id ALIAS FOR queue_id;
+
+  v_constraint_name name;
+BEGIN
+  INSERT INTO _sr_entry VALUES(p_queue_id, entry);
+EXCEPTION WHEN foreign_key_violation THEN
+  GET STACKED DIAGNOSTICS v_constraint_name = CONSTRAINT_NAME;
+  IF v_constraint_name = '_sr_entry_queue_id_fkey' THEN
+    RAISE 'queue_id % does not exist', p_queue_id
+      USING ERRCODE = 'no_data_found'
+    ;
+  ELSE
+    RAISE; -- Re-raise error
+  END IF;
+END
+$body$;
+REVOKE ALL ON FUNCTION "_add"(
+  queue_id _queue.queue_id%TYPE
+  , entry queue_entry
+) FROM public;
+GRANT EXECUTE ON FUNCTION "_add"(
+  queue_id _queue.queue_id%TYPE
+  , entry queue_entry
+) TO qgres__queue_insert;
+
+CREATE OR REPLACE FUNCTION "add"(
+  queue_id _queue.queue_id%TYPE
+  , bytea bytea
+  , jsonb jsonb
+  , text text
+) RETURNS void LANGUAGE sql AS $body$
+SELECT "_add"(queue_id, queue_entry(bytea := bytea, jsonb := jsonb, text := text))
+$body$;
+CREATE OR REPLACE FUNCTION "add"(
+  queue_name _queue.queue_name%TYPE
+  , bytea bytea
+  , jsonb jsonb
+  , text text
+) RETURNS void LANGUAGE sql AS $body$
+SELECT "_add"(queue__get_id(queue_name), queue_entry(bytea := bytea, jsonb := jsonb, text := text))
+$body$;
+CREATE OR REPLACE FUNCTION qgres_temp.build_add(
+  first_arg text
+  , call text
+  , data_type regtype
+) RETURNS void LANGUAGE plpgsql AS $build$
+DECLARE
+  c_template CONSTANT text := $template$
+CREATE OR REPLACE FUNCTION "add"(
+  %1$s
+  , %3$s %3$s
+) RETURNS void LANGUAGE sql AS $body$
+SELECT "_add"(%2$s, queue_entry(%3$s := %3$s))
+$body$;
+$template$;
+BEGIN
+  EXECUTE format(c_template, first_arg, call, data_type);
+END
+$build$;
+SELECT qgres_temp.build_add( first_arg, call, data_type )
+  FROM
+  (VALUES
+      ('queue_id _queue.queue_id%TYPE'::text, 'queue_id'::text)
+      , ('queue_name _queue.queue_name%TYPE', 'queue__get_id(queue_name)')
+    ) v(first_arg, call)
+  , unnest('{bytea,jsonb,text}'::regtype[]) data_type
+;
+DROP FUNCTION qgres_temp.build_add(text,text,regtype); 
 
 /*
  * consume()
