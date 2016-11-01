@@ -130,10 +130,11 @@ CREATE TRIGGER update AFTER UPDATE OF queue_id, consumer_name ON _sp_consumer
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
 ;
 CREATE TABLE _sp_entry(
-  queue_id        int     NOT NULL REFERENCES _sp_next_sequence_number -- Ensures this is an sp queue
-  , sequence_number int   NOT NULL
+  queue_id          int             NOT NULL
+      REFERENCES _sp_next_sequence_number -- Ensures this is an sp queue
+  , sequence_number int             NOT NULL
   , CONSTRAINT _sp_consumer__pk_queue_id__sequence_number PRIMARY KEY( queue_id, sequence_number )
-  , entry queue_entry     NOT NULL
+  , entry           queue_entry     NOT NULL
 );
 CREATE OR REPLACE FUNCTION _tg_sp_entry__sequence_number(
 ) RETURNS trigger LANGUAGE plpgsql AS $body$
