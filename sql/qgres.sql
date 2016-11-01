@@ -124,7 +124,7 @@ CREATE TABLE _sp_consumer(
   , consumer_name citext  NOT NULL
   , CONSTRAINT _sp_consumer__pk_queue_id__consumer_name PRIMARY KEY( queue_id, consumer_name )
   -- TODO: move to a separate table for better performance
-  , next_next_sequence_number int     NOT NULL
+  , current_sequence_number int     NOT NULL
 );
 CREATE TRIGGER update AFTER UPDATE OF queue_id, consumer_name ON _sp_consumer
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
@@ -330,7 +330,7 @@ BEGIN
       USING ERRCODE = 'invalid_parameter_value'
     ;
   END IF;
-  INSERT INTO _sp_consumer(queue_id, consumer_name, next_next_sequence_number)
+  INSERT INTO _sp_consumer(queue_id, consumer_name, current_sequence_number)
     VALUES(
       r_queue.queue_id
       , consumer_name
