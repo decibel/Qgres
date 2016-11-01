@@ -77,7 +77,7 @@ BEGIN
       CASE NEW.queue_type 
         WHEN 'Serial Publisher' THEN
           INSERT INTO _sp_next_sequence_number(queue_id, next_sequence_number)
-            VALUES(NEW.queue_id, 0)
+            VALUES(NEW.queue_id, 1)
           ;
         WHEN 'Serial Remover' THEN
           NULL;
@@ -124,7 +124,7 @@ CREATE TABLE _sp_consumer(
   , consumer_name citext  NOT NULL
   , CONSTRAINT _sp_consumer__pk_queue_id__consumer_name PRIMARY KEY( queue_id, consumer_name )
   -- TODO: move to a separate table for better performance
-  , current_sequence_number int     NOT NULL
+  , last_sequence_number int     NOT NULL
 );
 CREATE TRIGGER update AFTER UPDATE OF queue_id, consumer_name ON _sp_consumer
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
@@ -170,6 +170,26 @@ CREATE TRIGGER update AFTER UPDATE ON _sp_entry
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
 ;
 
+CREATE OR REPLACE FUNCTION _sp_trim(
+  queue_id  _queue.queue_id%TYPE
+) RETURNS void LANGUAGE plpgsql AS $body$
+DECLARE
+  p_queue_id ALIAS FOR queue_id;
+BEGIN
+  -- Not worth sanity-checking rowcount, since things like dropping a consumer could affect it
+  DELETE FROM _sp_entry e
+    WHERE e.queue_id = p_queue_id
+      AND e.sequence_number <=
+        (SELECT min(last_sequence_number)
+            FROM _sp_consumer c
+            WHERE c.queue_id = e.queue_id
+          )
+  ;
+END
+$body$;
+REVOKE ALL ON FUNCTION _sp_trim(
+  queue_id  _queue.queue_id%TYPE
+) FROM public;
 
 CREATE OR REPLACE VIEW queue AS
   SELECT queue_id, queue_name, queue_type
@@ -331,11 +351,11 @@ BEGIN
       USING ERRCODE = 'invalid_parameter_value'
     ;
   END IF;
-  INSERT INTO _sp_consumer(queue_id, consumer_name, current_sequence_number)
+  INSERT INTO _sp_consumer(queue_id, consumer_name, last_sequence_number)
     VALUES(
       r_queue.queue_id
       , consumer_name
-      , (SELECT next_sequence_number
+      , (SELECT next_sequence_number - 1
           FROM _sp_next_sequence_number
           WHERE queue_id = r_queue.queue_id
           FOR UPDATE
@@ -387,6 +407,9 @@ BEGIN
       USING ERRCODE = 'no_data_found'
     ;
   END IF;
+
+  -- Trim, in case this consumer was holding entries in the queue
+  PERFORM _sp_trim(r_queue.queue_id);
 END
 $body$;
 REVOKE ALL ON FUNCTION consumer__drop(
@@ -517,6 +540,140 @@ SELECT qgres_temp.build_publish( first_arg, call, data_type )
   , unnest('{bytea,jsonb,text}'::regtype[]) data_type
 ;
 DROP FUNCTION qgres_temp.build_publish(text,text,regtype); 
+
+/*
+ * consume()
+ */
+CREATE OR REPLACE FUNCTION consume(
+  queue_id _queue.queue_id%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+  , row_limit int DEFAULT 2^31-1
+) RETURNS TABLE(
+  sequence_number _sp_entry.sequence_number%TYPE
+  , bytea bytea
+  , jsonb jsonb
+  , text text
+) LANGUAGE plpgsql SECURITY DEFINER AS $body$
+DECLARE
+  p_queue_id ALIAS FOR queue_id;
+  p_consumer_name ALIAS FOR consumer_name;
+  p_limit ALIAS FOR row_limit;
+
+  v_sequence_number int;
+  v_last_sequence_number int;
+  rowcount bigint;
+BEGIN
+  DECLARE
+    r_queue queue;
+  BEGIN
+    SELECT INTO STRICT v_sequence_number
+        last_sequence_number
+      FROM _sp_consumer c
+      WHERE
+        c.queue_id = p_queue_id
+        AND c.consumer_name = p_consumer_name
+      FOR UPDATE
+    ;
+  EXCEPTION WHEN no_data_found THEN
+    -- This will throw an error if the queue doesn't exist, which is what we want
+    r_queue := queue__get(queue_id);
+
+    IF r_queue.queue_type <> 'Serial Publisher' THEN
+      RAISE 'consume() may only be called on Serial Publisher queues'
+        USING ERRCODE = 'invalid_parameter_value'
+          , DETAIL = format( 'queue_id %L is type %L', p_queue_id, r_queue.queue_type )
+          , HINT = 'Perhaps you want to use the "Remove"() function instead?'
+      ;
+    END IF;
+    
+    -- If we end up here then the consumer must not exist
+    RAISE 'consumer does not exist'
+      USING ERRCODE = 'no_data_found'
+        , DETAIL = format( 'queue_id %L, consumer_name  %L', p_queue_id, p_consumer_name )
+    ;
+  END;
+
+  FOR sequence_number, bytea, jsonb, text IN
+    SELECT e.sequence_number, (entry).bytea, (entry).jsonb, (entry).text
+      FROM _sp_entry e
+        WHERE e.queue_id = p_queue_id
+          AND e.sequence_number > v_sequence_number
+      ORDER BY e.sequence_number
+      LIMIT p_limit
+  LOOP
+    v_last_sequence_number = sequence_number;
+    RETURN NEXT;
+  END LOOP;
+
+  IF FOUND THEN
+    -- Update consumer
+    UPDATE _sp_consumer c
+      SET last_sequence_number = v_last_sequence_number
+      WHERE c.queue_id = p_queue_id
+        AND c.consumer_name = p_consumer_name
+    ;
+    GET DIAGNOSTICS rowcount = ROW_COUNT;
+    CASE
+      WHEN rowcount = 1 THEN
+        NULL; -- OK
+      WHEN rowcount = 0 THEN
+        RAISE '_sp_consumer record vanished'
+          USING HINT = 'This should never happen; please open an issue on GitHub.'
+            , DETAIL = format( 'queue_id %L, consumer_name  %L', p_queue_id, p_consumer_name )
+        ;
+      WHEN rowcount > 1 THEN
+        RAISE 'multiple records updated'
+          USING HINT = 'This should never happen; please open an issue on GitHub.'
+            , DETAIL = format( 'queue_id %L, consumer_name  %L', p_queue_id, p_consumer_name )
+        ;
+      ELSE
+        RAISE EXCEPTION 'unexpected rowcount value "%"', rowcount
+          USING HINT = 'This should never happen; please open an issue on GitHub.'
+            , DETAIL = format( 'queue_id %L, consumer_name  %L', p_queue_id, p_consumer_name )
+        ;
+    END CASE;
+
+    PERFORM _sp_trim(p_queue_id);
+  END IF;
+END
+$body$;
+REVOKE ALL ON FUNCTION consume(
+  queue_id _queue.queue_id%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+  , row_limit int
+) FROM public;
+GRANT EXECUTE ON FUNCTION consume(
+  queue_id _queue.queue_id%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+  , row_limit int
+) TO qgres__queue_delete;
+
+CREATE OR REPLACE FUNCTION consume(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+  , row_limit int DEFAULT 2^31-1
+) RETURNS TABLE(
+  sequence_number _sp_entry.sequence_number%TYPE
+  , bytea bytea
+  , jsonb jsonb
+  , text text
+) LANGUAGE sql AS $body$
+SELECT consume(
+  queue__get_id(queue_name)
+  , consumer_name
+  , row_limit
+);
+$body$;
+REVOKE ALL ON FUNCTION consume(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+  , row_limit int
+) FROM public;
+GRANT EXECUTE ON FUNCTION consume(
+  queue_name _queue.queue_name%TYPE
+  , consumer_name _sp_consumer.consumer_name%TYPE
+  , row_limit int
+) TO qgres__queue_delete;
 
 DROP SCHEMA qgres_temp; 
 -- vi: expandtab ts=2 sw=2

@@ -21,8 +21,9 @@ SELECT plan((
   + 6 -- _sp_next_sequence_number
   + 4 -- _sp_consumer
   + 5 -- _sp_entry
+  + pg_temp.function_test_count('') -- _sp_trim()
 
-  -- view tests
+  -- view tests (Note this runs after queue__create())
   + 2
 
   -- API functions
@@ -33,38 +34,53 @@ SELECT plan((
     + 1 -- error test
   )
 
-  + ( -- consumer__register
-    pg_temp.function_test_count('qgres__queue_insert')
-    + 2 -- 2 good consumers
-    + 3 -- 3 exceptions
-  )
-
-  + ( -- consumer__drop
-    pg_temp.function_test_count('qgres__queue_insert')
-    + 2 -- register then drop
-    + 2 -- exceptions
-  )
-
-  + ( -- Publisher
-    pg_temp.function_test_count('qgres__queue_insert')
-    + 2 * 4 * pg_temp.function_test_count('qgres__queue_insert')
-    + 3 -- exceptions
-    + 3 -- consumer registration (spread across test)
-    + 4 -- test NULLs
-    + 4 -- test not NULL
-  )
-
   + ( -- queue__get*()
     1 -- sanity check
     + 3 * pg_temp.function_test_count('public')
     + 3 * 2 -- 3 tests * 2 queues
-  )
+  ) -- +19 = 76
+
+  + ( -- consumer__register
+    pg_temp.function_test_count('qgres__queue_delete')
+    + 2 -- 2 good consumers
+    + 3 -- 3 exceptions
+  ) -- +9 = 85
+
+  + ( -- consumer__drop
+    pg_temp.function_test_count('qgres__queue_delete')
+    + 1 -- drop
+    + 2 -- exceptions
+  ) -- +7 = 92
+
+  + ( -- Publish
+    pg_temp.function_test_count('qgres__queue_insert')
+    + 2 * 4 * pg_temp.function_test_count('qgres__queue_insert')
+      -- +36 = 128
+    + 3 -- exceptions
+    + 2 -- consumer registration (spread across test)
+    + 4 -- test NULLs
+    + 4 -- test not NULL
+  ) -- +13 = 141
+
+  + ( -- consume
+    2 * pg_temp.function_test_count('qgres__queue_delete')
+    + 4 -- exceptions
+    + 3 -- sanity checks
+    + 1 -- test NULLs
+    + 1 -- entry count
+    + 2 -- test not NULL
+    + 1 -- entry count
+    + 3 -- test empty queue
+    + 1 -- Publish more
+    + 3 -- verify consume and queue still has entries
+    + 2 -- Drop consumer; verify
+  ) -- +29 = 170
 
   + ( -- queue__drop()
     pg_temp.function_test_count('qgres__queue_manage')
     + pg_temp.function_test_count('public')
     + 2 -- non-existent queue
-  )
+  ) -- +10 = 180
 )::int);
 
 /*
@@ -239,6 +255,14 @@ SELECT is(
   , NULL
   , 'table "_sp_entry" should not have any permissions defined'
 );
+SELECT pg_temp.function_test(
+  '_sp_trim'
+  , 'int'
+  , 'volatile'
+  , strict := false
+  , definer := false
+  , execute_roles := current_user
+);
 
 /*
  * queue__create()
@@ -383,15 +407,11 @@ SELECT pg_temp.function_test(
   , execute_roles := 'qgres__queue_delete,' || current_user
 );
 SELECT lives_ok(
-  $$SELECT consumer__register('test SP queue', 'test consumer for drop')$$
-  , 'Register test consumer for drop'
-);
-SELECT lives_ok(
-  $$SELECT consumer__drop('test SP queue', 'test consumer for drop')$$
-  , 'Drop test consumer'
+  $$SELECT consumer__drop('test SP queue', 'test consumer 2')$$
+  , 'Drop test consumer 2'
 );
 SELECT throws_ok(
-  $$SELECT consumer__drop('queue that should not exist', 'test consumer')$$
+  $$SELECT consumer__drop('queue that should not exist', 'test consumer 2')$$
   , 'P0002'
   , 'queue "queue that should not exist" does not exist'
   , 'dropping consumer on non-existent queue should error'
@@ -454,10 +474,6 @@ SELECT throws_ok(
   , 'queue "queue that should not exist" does not exist'
   , 'Publishing to "queue that should not exist" throws error'
 );
-SELECT lives_ok(
-  $$SELECT consumer__register('test SP queue', 'initial')$$
-  , $$Register consumer 'initial'$$
-);
 -- TEST NULLS
 SELECT lives_ok(
   $$SELECT "Publish"('test SP queue', NULL, NULL, NULL)$$
@@ -503,6 +519,143 @@ SELECT lives_ok(
 SELECT lives_ok(
   $$SELECT consumer__register('test SP queue', 'empty')$$
   , $$Register consumer 'empty'$$
+);
+
+/*
+ * consume()
+ */
+SELECT pg_temp.function_test(
+  'consume'
+  , 'int,citext,int'
+  , 'volatile'
+  , strict := false
+  , definer := true
+  , execute_roles := 'qgres__queue_delete,' || current_user
+);
+SELECT pg_temp.function_test(
+  'consume'
+  , 'citext,citext,int'
+  , 'volatile'
+  , strict := false
+  , definer := false
+  , execute_roles := 'qgres__queue_delete,' || current_user
+);
+SELECT throws_ok(
+  $$SELECT consume(-999999, 'no such consumer' )$$
+  , 'P0002'
+  , 'queue_id -999999 does not exist'
+  , 'consume() with non-existent queue_id throws error'
+);
+SELECT throws_ok(
+  $$SELECT consume('no such queue', 'no such consumer' )$$
+  , 'P0002'
+  , 'queue "no such queue" does not exist'
+  , 'consume() with non-existent queue_name throws error'
+);
+SELECT throws_ok(
+  $$SELECT consume('test SR queue', 'empty' )$$
+  , '22023'
+  , 'consume() may only be called on Serial Publisher queues'
+  , 'consume() with non-existent consumer throws error'
+);
+SELECT throws_ok(
+  $$SELECT consume('test SP queue', 'no such consumer' )$$
+  , 'P0002'
+  , 'consumer does not exist'
+  , 'consume() with non-existent consumer throws error'
+);
+-- Sanity-checks
+SELECT is(
+  (SELECT count(*)::int FROM _sp_entry WHERE queue_id = queue__get_id('test SP queue'))
+  , 8
+  , 'Sanity-check test queue'
+);
+SELECT is(
+  (SELECT int4range(min(sequence_number),max(sequence_number),'[]')
+      FROM _sp_entry
+      WHERE queue_id = queue__get_id('test SP queue')
+    )
+  , '[1,8]'::int4range
+  , 'Sanity-check test queue entries'
+);
+SELECT bag_eq(
+  $$SELECT consumer_name, last_sequence_number
+      FROM _sp_consumer
+      WHERE queue_id = queue__get_id('test SP queue')
+    $$
+  , $$SELECT * FROM (VALUES
+        ('test consumer'::citext, 0::int)
+        , ('post-NULLs', 4)
+        , ('empty', 8)
+      ) v(consumer_name, last_sequence_number)
+      $$
+  , 'Verify _sp_consumer contents'
+);
+-- Test returned values
+SELECT results_eq(
+  $$SELECT * FROM consume('test SP queue', 'test consumer', 4)$$
+  , $$SELECT gs::int, NULL::bytea, NULL::jsonb, NULL::text
+        FROM generate_series(1,4) gs
+    $$
+  , 'Verify NULL entries from test consumer'
+);
+SELECT is(
+  (SELECT count(*)::int FROM _sp_entry WHERE queue_id = queue__get_id('test SP queue'))
+  , 4
+  , 'Verify queue entries are removed'
+);
+SELECT results_eq(
+  format( $$SELECT * FROM consume('test SP queue', %L)$$, consumer ) 
+  , $$SELECT *
+        FROM
+          (VALUES
+            (5, '0xdeadbeef'::bytea, '{"key":"jsonb"}'::jsonb, 'text'::text)
+            , (6, '0xdeadbeef'::bytea, NULL, NULL)
+            , (7, NULL, '{"key":"jsonb"}', NULL)
+            , (8, NULL, NULL, 'text')
+          ) v(sequence_number, bytea, jsonb, text)
+        ORDER BY sequence_number
+    $$
+  , format( 'Verify results from consumer %L', consumer )
+) FROM unnest('{test consumer,post-NULLs}'::citext[]) consumer
+;
+SELECT is(
+  (SELECT count(*)::int FROM _sp_entry WHERE queue_id = queue__get_id('test SP queue'))
+  , 0
+  , 'Verify queue entries are removed'
+);
+SELECT is(
+      (SELECT count(*)::int FROM consume('test SP queue', consumer_name))
+      , 0
+      , format('Verify no rows returned for consumer %L', consumer_name)
+    )
+  FROM _sp_consumer
+  WHERE queue_id = queue__get_id('test SP queue')
+;
+SELECT results_eq(
+  $$SELECT "Publish"('test SP queue', gs::text) FROM generate_series(1,10) gs$$
+  , $$SELECT generate_series(1,10)+8$$
+  , 'Publish new records'
+);
+SELECT results_eq(
+  format( $$SELECT sequence_number, text FROM consume('test SP queue', %L)$$, consumer ) 
+  , $$SELECT gs+8, gs::text FROM generate_series(1,10) gs$$
+  , format( 'Verify results from consumer %L', consumer )
+) FROM unnest('{test consumer,post-NULLs}'::citext[]) consumer
+;
+SELECT is(
+  (SELECT count(*)::int FROM _sp_entry WHERE queue_id = queue__get_id('test SP queue'))
+  , 10
+  , 'Verify queue entries still exist'
+);
+SELECT lives_ok(
+  $$SELECT consumer__drop('test SP queue', 'empty')$$
+  , $$Drop consumer 'empty'$$
+);
+SELECT is(
+  (SELECT count(*)::int FROM _sp_entry WHERE queue_id = queue__get_id('test SP queue'))
+  , 0
+  , 'Verify queue entries are removed after dropping consumer'
 );
 
 

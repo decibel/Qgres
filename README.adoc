@@ -129,7 +129,7 @@ Consumes entries from a queue. This has no effect on other consumers.
 
 {queue_name|queue_id}:: Queue name (case-insensitive) or queue ID
 consumer_name:: Consumer name (case-insensitive)
-[limit]:: If specified, `consume()` will return multiple entries at once.
+[limit]:: If specified, `consume()` will return no more than limit rows
 
 INFO: Unless this is called in a SERIALIZE or REPEATABLE READ transaction, it's possible for the function to return no entries on one invocation, but return new entries on a subsequent call as other transactions commit. Entries will never be skipped over, though.
 
