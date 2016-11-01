@@ -1,5 +1,5 @@
 CREATE SCHEMA qgres_temp; -- Can't use pg_temp or entire extension will uninstall after commit
-CREATE FUNCTION qgres_temp.role__create(
+CREATE OR REPLACE FUNCTION qgres_temp.role__create(
   role_name name
 ) RETURNS void LANGUAGE plpgsql AS $body$
 BEGIN
@@ -38,7 +38,7 @@ CREATE OR REPLACE FUNCTION queue_entry(
 SELECT row($1,$2,$3)::queue_entry;
 $body$;
 
-CREATE FUNCTION _queue_type__sanitize(
+CREATE OR REPLACE FUNCTION _queue_type__sanitize(
   queue_type text
 ) RETURNS queue_type LANGUAGE sql STRICT STABLE AS $body$
 SELECT CASE
@@ -51,7 +51,7 @@ COMMENT ON FUNCTION _queue_type__sanitize(
   text
 ) IS $$Used to standardize input to the queue_type ENUM.$$;
 
-CREATE FUNCTION _tg_not_allowed(
+CREATE OR REPLACE FUNCTION _tg_not_allowed(
 ) RETURNS trigger LANGUAGE plpgsql AS $body$
 BEGIN
   RAISE '% to % is not allowed', TG_OP, TG_RELID::regclass;
@@ -66,7 +66,7 @@ CREATE TABLE _queue(
   , queue_name    citext    NOT NULL UNIQUE
   , queue_type    queue_type  NOT NULL
 );
-CREATE FUNCTION _queue_dml(
+CREATE OR REPLACE FUNCTION _queue_dml(
 ) RETURNS trigger LANGUAGE plpgsql AS $body$
 BEGIN
   IF TG_WHEN <> 'AFTER' THEN
@@ -103,7 +103,7 @@ CREATE TABLE _sp_entry_id(
   queue_id      int     NOT NULL PRIMARY KEY REFERENCES _queue ON DELETE CASCADE
   , entry_id    int     NOT NULL
 );
-CREATE FUNCTION _tg_sp_entry_id__verify_sp_queue(
+CREATE OR REPLACE FUNCTION _tg_sp_entry_id__verify_sp_queue(
 ) RETURNS trigger LANGUAGE plpgsql AS $body$
 BEGIN
   IF (queue__get(NEW.queue_id)).queue_type <> 'Serial Publisher' THEN
@@ -149,7 +149,7 @@ GRANT SELECT ON queue TO PUBLIC;
 /*
  * API FUNCTIONS
  */
-CREATE FUNCTION queue__get(
+CREATE OR REPLACE FUNCTION queue__get(
   queue_name  _queue.queue_name%TYPE
 ) RETURNS queue LANGUAGE plpgsql STABLE AS $body$
 DECLARE
@@ -168,7 +168,7 @@ EXCEPTION WHEN no_data_found THEN
   ;
 END
 $body$;
-CREATE FUNCTION queue__get(
+CREATE OR REPLACE FUNCTION queue__get(
   queue_id  _queue.queue_id%TYPE
 ) RETURNS queue LANGUAGE plpgsql STABLE AS $body$
 DECLARE
@@ -187,13 +187,13 @@ EXCEPTION WHEN no_data_found THEN
   ;
 END
 $body$;
-CREATE FUNCTION queue__get_id(
+CREATE OR REPLACE FUNCTION queue__get_id(
   queue_name  _queue.queue_name%TYPE
 ) RETURNS int LANGUAGE sql STABLE AS $body$
 SELECT (queue__get(queue_name)).queue_id
 $body$;
 
-CREATE FUNCTION queue__create(
+CREATE OR REPLACE FUNCTION queue__create(
   queue_name  _queue.queue_name%TYPE
   , queue_type _queue.queue_type%TYPE
   , OUT queue_id int
@@ -223,7 +223,7 @@ COMMENT ON FUNCTION queue__create(
   , queue_type _queue.queue_type%TYPE
 ) IS $$Creates a new queue. Returns queue_id for the new queue. Raises an error if a queue with the same name already exists.$$;
 
-CREATE FUNCTION queue__create(
+CREATE OR REPLACE FUNCTION queue__create(
   queue_name _queue.queue_name%TYPE
   , queue_type text
   , OUT queue_id int
@@ -232,7 +232,7 @@ SELECT queue__create(queue_name, _queue_type__sanitize(queue_type))
 $body$;
 
 
-CREATE FUNCTION queue__drop(
+CREATE OR REPLACE FUNCTION queue__drop(
   queue_id  _queue.queue_id%TYPE
   , force boolean DEFAULT false
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $body$
@@ -271,7 +271,7 @@ COMMENT ON FUNCTION queue__drop(
 ) IS $$Drops a queue. Raises an error if the queue does not exist, or if there are events in the queue (unless force is true).$$;
 
 
-CREATE FUNCTION queue__drop(
+CREATE OR REPLACE FUNCTION queue__drop(
   queue_name  _queue.queue_name%TYPE
   , force boolean DEFAULT false
 ) RETURNS void LANGUAGE sql AS $body$
@@ -458,7 +458,7 @@ CREATE OR REPLACE FUNCTION "Publish"(
 ) LANGUAGE sql AS $body$
 SELECT "_Publish"(queue__get_id(queue_name), queue_entry(bytea := bytea, jsonb := jsonb, text := text))
 $body$;
-CREATE FUNCTION qgres_temp.build_publish(
+CREATE OR REPLACE FUNCTION qgres_temp.build_publish(
   first_arg text
   , call text
   , data_type regtype
@@ -487,7 +487,6 @@ SELECT qgres_temp.build_publish( first_arg, call, data_type )
 ;
 DROP FUNCTION qgres_temp.build_publish(text,text,regtype); 
 
--- TODO: Switch CREATE FUNCTION to CREATE OR REPLACE
 -- TODO: s/entry_id/next_sequence_number/g
 
 DROP SCHEMA qgres_temp; 
