@@ -1,83 +1,151 @@
 \unset ECHO
-1..80
-ok 1 - Function _queue_type__sanitize(text) should be STABLE
-ok 2 - Function _queue_type__sanitize(text) should be strict
-ok 3 - Function _queue_type__sanitize(text) shouldn't be security definer
-ok 4 - Function _queue_type__sanitize(text) shouldn't have any permissions defined
-ok 5 - Check _queue_type__sanitize('SP')
-ok 6 - Check _queue_type__sanitize('Serial Publisher')
-ok 7 - Check _queue_type__sanitize('SR')
-ok 8 - Check _queue_type__sanitize('Serial Remover')
-ok 9 - Check _queue_type__sanitize('sp')
-ok 10 - Check _queue_type__sanitize('serial publisher')
-ok 11 - Check _queue_type__sanitize('sr')
-ok 12 - Check _queue_type__sanitize('serial remover')
-ok 13 - Column _queue(queue_id) should be a primary key
-ok 14 - Column _queue(queue_name) should have a unique constraint
-ok 15 - Column _queue.queue_name should be NOT NULL
-ok 16 - Column _queue.queue_name should be type citext
-ok 17 - Trigger _queue_dml should call _queue_dml()
-ok 18 - Trigger update should call _tg_not_allowed()
-ok 19 - table "_queue" should not have any permissions defined
-ok 20 - Column _sp_entry_id(queue_id) should be a primary key
-ok 21 - Column _sp_entry_id.entry_id should be NOT NULL
-ok 22 - _sp_entry_id(queue_id) should reference _queue(queue_id)
-ok 23 - Trigger verify_sp_queue__insert should call _tg_sp_entry_id__verify_sp_queue()
-ok 24 - Trigger update_queue_id should call _tg_not_allowed()
-ok 25 - table "_sp_entry_id" should not have any permissions defined
-ok 26 - Columns _sp_consumer(queue_id, consumer_name) should be a primary key
-ok 27 - _sp_consumer(queue_id) should reference _sp_entry_id(queue_id)
-ok 28 - Trigger update should call _tg_not_allowed()
-ok 29 - table "_sp_consumer" should not have any permissions defined
-ok 30 - Function queue__create(citext, queue_type) should be VOLATILE
-ok 31 - Function queue__create(citext, queue_type) should not be strict
-ok 32 - Function queue__create(citext, queue_type) should be security definer
-ok 33 - Check EXECUTE rights on function queue__create(citext, queue_type)
-ok 34 - Function queue__create(citext, text) should be VOLATILE
-ok 35 - Function queue__create(citext, text) should not be strict
-ok 36 - Function queue__create(citext, text) shouldn't be security definer
-ok 37 - Function queue__create(citext, text) shouldn't have any permissions defined
-ok 38 - Creation of SP queue works
-ok 39 - Creation of SR queue works
-ok 40 - Duplicate creation produces nice error message
-ok 41 - Verify contents of view "queue"
-ok 42 - Role public should be granted SELECT on table queue
-ok 43 - Expected number of base queue entries
-ok 44 - Function queue__get(citext) should be STABLE
-ok 45 - Function queue__get(citext) should not be strict
-ok 46 - Function queue__get(citext) shouldn't be security definer
-ok 47 - Function queue__get(citext) shouldn't have any permissions defined
-ok 48 - Function queue__get(integer) should be STABLE
-ok 49 - Function queue__get(integer) should not be strict
-ok 50 - Function queue__get(integer) shouldn't be security definer
-ok 51 - Function queue__get(integer) shouldn't have any permissions defined
-ok 52 - Function queue__get_id(citext) should be STABLE
-ok 53 - Function queue__get_id(citext) should not be strict
-ok 54 - Function queue__get_id(citext) shouldn't be security definer
-ok 55 - Function queue__get_id(citext) shouldn't have any permissions defined
-ok 56 - queue__get(queue_id)
-ok 57 - queue__get(queue_id)
-ok 58 - queue__get(queue_name)
-ok 59 - queue__get(queue_name)
-ok 60 - queue__get_id(queue_name)
-ok 61 - queue__get_id(queue_name)
-ok 62 - Function consumer__register(citext, citext) should be VOLATILE
-ok 63 - Function consumer__register(citext, citext) should not be strict
-ok 64 - Function consumer__register(citext, citext) should be security definer
-ok 65 - Check EXECUTE rights on function consumer__register(citext, citext)
-ok 66 - Register 1st test consumer
-ok 67 - Register 2nd test consumer
-ok 68 - registering duplicate consumer should error
-ok 69 - registering consumer on non-existent queue should error
-ok 70 - registering consumer on SR queue should error
-ok 71 - Function queue__drop(integer, boolean) should be VOLATILE
-ok 72 - Function queue__drop(integer, boolean) should not be strict
-ok 73 - Function queue__drop(integer, boolean) should be security definer
-ok 74 - Check EXECUTE rights on function queue__drop(integer, boolean)
-ok 75 - Function queue__drop(citext, boolean) should be VOLATILE
-ok 76 - Function queue__drop(citext, boolean) should not be strict
-ok 77 - Function queue__drop(citext, boolean) shouldn't be security definer
-ok 78 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
-ok 79 - Dropping non-existent queue throws an error
-ok 80 - Dropping non-existent queue throws an error
+1..148
+ok 1 - Function queue_entry(bytea, jsonb, text) should be IMMUTABLE
+ok 2 - Function queue_entry(bytea, jsonb, text) should not be strict
+ok 3 - Function queue_entry(bytea, jsonb, text) shouldn't be security definer
+ok 4 - Function queue_entry(bytea, jsonb, text) shouldn't have any permissions defined
+ok 5 - sanity check queue_entry() with named parameters
+ok 6 - sanity check queue_entry() with no parameters
+ok 7 - Function _queue_type__sanitize(text) should be STABLE
+ok 8 - Function _queue_type__sanitize(text) should be strict
+ok 9 - Function _queue_type__sanitize(text) shouldn't be security definer
+ok 10 - Function _queue_type__sanitize(text) shouldn't have any permissions defined
+ok 11 - Check _queue_type__sanitize('SP')
+ok 12 - Check _queue_type__sanitize('Serial Publisher')
+ok 13 - Check _queue_type__sanitize('SR')
+ok 14 - Check _queue_type__sanitize('Serial Remover')
+ok 15 - Check _queue_type__sanitize('sp')
+ok 16 - Check _queue_type__sanitize('serial publisher')
+ok 17 - Check _queue_type__sanitize('sr')
+ok 18 - Check _queue_type__sanitize('serial remover')
+ok 19 - Column _queue(queue_id) should be a primary key
+ok 20 - Column _queue(queue_name) should have a unique constraint
+ok 21 - Column _queue.queue_name should be NOT NULL
+ok 22 - Column _queue.queue_name should be type citext
+ok 23 - Trigger _queue_dml should call _queue_dml()
+ok 24 - Trigger update should call _tg_not_allowed()
+ok 25 - table "_queue" should not have any permissions defined
+ok 26 - Column _sp_entry_id(queue_id) should be a primary key
+ok 27 - Column _sp_entry_id.entry_id should be NOT NULL
+ok 28 - _sp_entry_id(queue_id) should reference _queue(queue_id)
+ok 29 - Trigger verify_sp_queue__insert should call _tg_sp_entry_id__verify_sp_queue()
+ok 30 - Trigger update_queue_id should call _tg_not_allowed()
+ok 31 - table "_sp_entry_id" should not have any permissions defined
+ok 32 - Columns _sp_consumer(queue_id, consumer_name) should be a primary key
+ok 33 - _sp_consumer(queue_id) should reference _sp_entry_id(queue_id)
+ok 34 - Trigger update should call _tg_not_allowed()
+ok 35 - table "_sp_consumer" should not have any permissions defined
+ok 36 - Columns _sp_entry(queue_id, sequence_number) should be a primary key
+ok 37 - _sp_entry(queue_id) should reference _sp_entry_id(queue_id)
+ok 38 - Trigger update should call _tg_not_allowed()
+ok 39 - table "_sp_entry" should not have any permissions defined
+ok 40 - Function queue__create(citext, queue_type) should be VOLATILE
+ok 41 - Function queue__create(citext, queue_type) should not be strict
+ok 42 - Function queue__create(citext, queue_type) should be security definer
+ok 43 - Check EXECUTE rights on function queue__create(citext, queue_type)
+ok 44 - Function queue__create(citext, text) should be VOLATILE
+ok 45 - Function queue__create(citext, text) should not be strict
+ok 46 - Function queue__create(citext, text) shouldn't be security definer
+ok 47 - Function queue__create(citext, text) shouldn't have any permissions defined
+ok 48 - Creation of SP queue works
+ok 49 - Creation of SR queue works
+ok 50 - Duplicate creation produces nice error message
+ok 51 - Verify contents of view "queue"
+ok 52 - Role public should be granted SELECT on table queue
+ok 53 - Expected number of base queue entries
+ok 54 - Function queue__get(citext) should be STABLE
+ok 55 - Function queue__get(citext) should not be strict
+ok 56 - Function queue__get(citext) shouldn't be security definer
+ok 57 - Function queue__get(citext) shouldn't have any permissions defined
+ok 58 - Function queue__get(integer) should be STABLE
+ok 59 - Function queue__get(integer) should not be strict
+ok 60 - Function queue__get(integer) shouldn't be security definer
+ok 61 - Function queue__get(integer) shouldn't have any permissions defined
+ok 62 - Function queue__get_id(citext) should be STABLE
+ok 63 - Function queue__get_id(citext) should not be strict
+ok 64 - Function queue__get_id(citext) shouldn't be security definer
+ok 65 - Function queue__get_id(citext) shouldn't have any permissions defined
+ok 66 - queue__get(queue_id)
+ok 67 - queue__get(queue_id)
+ok 68 - queue__get(queue_name)
+ok 69 - queue__get(queue_name)
+ok 70 - queue__get_id(queue_name)
+ok 71 - queue__get_id(queue_name)
+ok 72 - Function consumer__register(citext, citext) should be VOLATILE
+ok 73 - Function consumer__register(citext, citext) should not be strict
+ok 74 - Function consumer__register(citext, citext) should be security definer
+ok 75 - Check EXECUTE rights on function consumer__register(citext, citext)
+ok 76 - Register 1st test consumer
+ok 77 - Register 2nd test consumer
+ok 78 - registering duplicate consumer should error
+ok 79 - registering consumer on non-existent queue should error
+ok 80 - registering consumer on SR queue should error
+ok 81 - Function consumer__drop(citext, citext) should be VOLATILE
+ok 82 - Function consumer__drop(citext, citext) should not be strict
+ok 83 - Function consumer__drop(citext, citext) should be security definer
+ok 84 - Check EXECUTE rights on function consumer__drop(citext, citext)
+ok 85 - Register test consumer for drop
+ok 86 - Drop test consumer
+ok 87 - dropping consumer on non-existent queue should error
+ok 88 - dropping consumer on SR queue should error
+ok 89 - Function "_Publish"(integer, queue_entry) should be VOLATILE
+ok 90 - Function "_Publish"(integer, queue_entry) should not be strict
+ok 91 - Function "_Publish"(integer, queue_entry) should be security definer
+ok 92 - Check EXECUTE rights on function "_Publish"(integer, queue_entry)
+ok 93 - Function "Publish"(integer, bytea, jsonb, text) should be VOLATILE
+ok 94 - Function "Publish"(integer, bytea, jsonb, text) should not be strict
+ok 95 - Function "Publish"(integer, bytea, jsonb, text) shouldn't be security definer
+ok 96 - Function "Publish"(integer, bytea, jsonb, text) shouldn't have any permissions defined
+ok 97 - Function "Publish"(citext, bytea, jsonb, text) should be VOLATILE
+ok 98 - Function "Publish"(citext, bytea, jsonb, text) should not be strict
+ok 99 - Function "Publish"(citext, bytea, jsonb, text) shouldn't be security definer
+ok 100 - Function "Publish"(citext, bytea, jsonb, text) shouldn't have any permissions defined
+ok 101 - Function "Publish"(integer, bytea) should be VOLATILE
+ok 102 - Function "Publish"(integer, bytea) should not be strict
+ok 103 - Function "Publish"(integer, bytea) shouldn't be security definer
+ok 104 - Function "Publish"(integer, bytea) shouldn't have any permissions defined
+ok 105 - Function "Publish"(citext, bytea) should be VOLATILE
+ok 106 - Function "Publish"(citext, bytea) should not be strict
+ok 107 - Function "Publish"(citext, bytea) shouldn't be security definer
+ok 108 - Function "Publish"(citext, bytea) shouldn't have any permissions defined
+ok 109 - Function "Publish"(integer, jsonb) should be VOLATILE
+ok 110 - Function "Publish"(integer, jsonb) should not be strict
+ok 111 - Function "Publish"(integer, jsonb) shouldn't be security definer
+ok 112 - Function "Publish"(integer, jsonb) shouldn't have any permissions defined
+ok 113 - Function "Publish"(citext, jsonb) should be VOLATILE
+ok 114 - Function "Publish"(citext, jsonb) should not be strict
+ok 115 - Function "Publish"(citext, jsonb) shouldn't be security definer
+ok 116 - Function "Publish"(citext, jsonb) shouldn't have any permissions defined
+ok 117 - Function "Publish"(integer, text) should be VOLATILE
+ok 118 - Function "Publish"(integer, text) should not be strict
+ok 119 - Function "Publish"(integer, text) shouldn't be security definer
+ok 120 - Function "Publish"(integer, text) shouldn't have any permissions defined
+ok 121 - Function "Publish"(citext, text) should be VOLATILE
+ok 122 - Function "Publish"(citext, text) should not be strict
+ok 123 - Function "Publish"(citext, text) shouldn't be security definer
+ok 124 - Function "Publish"(citext, text) shouldn't have any permissions defined
+ok 125 - _Publish with non-existent queue_id throws error
+ok 126 - Publish with non-existent queue_id throws error
+ok 127 - Publishing to "queue that should not exist" throws error
+ok 128 - Register consumer 'initial'
+ok 129 - SELECT "Publish"('test SP queue', NULL, NULL, NULL)
+ok 130 - SELECT "Publish"('test SP queue', NULL::bytea)
+ok 131 - SELECT "Publish"('test SP queue', NULL::jsonb)
+ok 132 - SELECT "Publish"('test SP queue', NULL::text)
+ok 133 - Register consumer 'post-NULLs'
+ok 134 - SELECT "Publish"('test SP queue', '0xdeadbeef', '{"key":"jsonb"}'::jsonb, 'text')
+ok 135 - SELECT "Publish"('test SP queue', '0xdeadbeef'::bytea)
+ok 136 - SELECT "Publish"('test SP queue', '{"key":"jsonb"}'::jsonb)
+ok 137 - SELECT "Publish"('test SP queue', 'text'::text)
+ok 138 - Register consumer 'empty'
+ok 139 - Function queue__drop(integer, boolean) should be VOLATILE
+ok 140 - Function queue__drop(integer, boolean) should not be strict
+ok 141 - Function queue__drop(integer, boolean) should be security definer
+ok 142 - Check EXECUTE rights on function queue__drop(integer, boolean)
+ok 143 - Function queue__drop(citext, boolean) should be VOLATILE
+ok 144 - Function queue__drop(citext, boolean) should not be strict
+ok 145 - Function queue__drop(citext, boolean) shouldn't be security definer
+ok 146 - Function queue__drop(citext, boolean) shouldn't have any permissions defined
+ok 147 - Dropping non-existent queue throws an error
+ok 148 - Dropping non-existent queue throws an error
 # TRANSACTION INTENTIONALLY LEFT OPEN!

@@ -6,6 +6,11 @@
 SELECT plan((
   0
   -- General tests
+  + ( -- queue_type
+    pg_temp.function_test_count('public')
+    + 2
+  )
+
   + ( -- _queue_type__sanitize()
     pg_temp.function_test_count('public')
     + 4 * 2 -- _queue_type__sanitize()
@@ -15,6 +20,7 @@ SELECT plan((
   + 7 -- _queue
   + 6 -- _sp_entry_id
   + 4 -- _sp_consumer
+  + 4 -- _sp_entry
 
   -- view tests
   + 2
@@ -39,6 +45,15 @@ SELECT plan((
     + 2 -- exceptions
   )
 
+  + ( -- Publisher
+    pg_temp.function_test_count('qgres__queue_insert')
+    + 2 * 4 * pg_temp.function_test_count('qgres__queue_insert')
+    + 3 -- exceptions
+    + 3 -- consumer registration (spread across test)
+    + 4 -- test NULLs
+    + 4 -- test not NULL
+  )
+
   + ( -- queue__get*()
     1 -- sanity check
     + 3 * pg_temp.function_test_count('public')
@@ -53,8 +68,30 @@ SELECT plan((
 )::int);
 
 /*
-* _queue_type__sanitize()
-*/
+ * queue_entry
+ */
+SELECT pg_temp.function_test(
+  'queue_entry'
+  , 'bytea,jsonb,text'
+  , 'immutable'
+  , strict := false
+  , definer := false
+  , execute_roles := 'public'
+);
+SELECT is(
+  queue_entry(bytea := '0xdeadbeef', jsonb := '{"key": "jsonb"}', text := 'text')
+  , row('0xdeadbeef'::bytea, '{"key": "jsonb"}'::jsonb, 'text'::text)::queue_entry
+  , 'sanity check queue_entry() with named parameters'
+);
+SELECT is(
+  queue_entry()
+  , row(NULL,NULL,NULL)::queue_entry
+  , 'sanity check queue_entry() with no parameters'
+);
+
+/*
+ * _queue_type__sanitize()
+ */
 SELECT pg_temp.function_test(
   '_queue_type__sanitize'
   , 'text'
@@ -174,6 +211,28 @@ SELECT is(
   (SELECT relacl FROM pg_class WHERE oid = '_sp_consumer'::regclass)
   , NULL
   , 'table "_sp_consumer" should not have any permissions defined'
+);
+
+-- _sp_entry
+SELECT col_is_pk(
+  '_sp_entry'
+  , array['queue_id', 'sequence_number']
+);
+SELECT fk_ok(
+  '_sp_entry'
+  , 'queue_id'
+  , '_sp_entry_id'
+  , 'queue_id'
+);
+SELECT trigger_is(
+  '_sp_entry'
+  , 'update'
+  , '_tg_not_allowed'
+);
+SELECT is(
+  (SELECT relacl FROM pg_class WHERE oid = '_sp_entry'::regclass)
+  , NULL
+  , 'table "_sp_entry" should not have any permissions defined'
 );
 
 /*
@@ -338,6 +397,109 @@ SELECT throws_ok(
   , 'consumers may only be dropped on "Serial Publisher" queues'
   , 'dropping consumer on SR queue should error'
 );
+
+/*
+ * Publish()
+ */
+-- The main publish function
+SELECT pg_temp.function_test(
+  '_Publish'
+  , 'int,queue_entry'
+  , 'volatile'
+  , strict := false
+  , definer := true
+  , execute_roles := 'qgres__queue_insert,' || current_user
+);
+
+/*
+ * We need to test a 2x4 matrix of (queue_name|queue_id) and the various data
+ * options.
+ */
+SELECT pg_temp.function_test(
+      'Publish'
+      , queue_arg || ',' || data_args
+      , 'volatile'
+      , strict := false
+      , definer := false
+      , execute_roles := 'public'
+    )
+  FROM (VALUES ('int'),('citext')) q(queue_arg)
+    , (VALUES
+      ('bytea,jsonb,text')
+      , ('bytea')
+      , ('jsonb')
+      , ('text')
+    ) d(data_args)
+;
+SELECT throws_ok(
+  $$SELECT "_Publish"(-999999, queue_entry() )$$
+  , 'P0002'
+  , 'queue_id -999999 does not exist'
+  , '_Publish with non-existent queue_id throws error'
+);
+SELECT throws_ok(
+  $$SELECT "Publish"(-999999, NULL::text )$$
+  , 'P0002'
+  , 'queue_id -999999 does not exist'
+  , 'Publish with non-existent queue_id throws error'
+);
+SELECT throws_ok(
+  $$SELECT "Publish"('queue that should not exist', NULL::text )$$
+  , 'P0002'
+  , 'queue "queue that should not exist" does not exist'
+  , 'Publishing to "queue that should not exist" throws error'
+);
+SELECT lives_ok(
+  $$SELECT consumer__register('test SP queue', 'initial')$$
+  , $$Register consumer 'initial'$$
+);
+-- TEST NULLS
+SELECT lives_ok(
+  $$SELECT "Publish"('test SP queue', NULL, NULL, NULL)$$
+  , $$SELECT "Publish"('test SP queue', NULL, NULL, NULL)$$
+);
+-- Test the 3 single arg versions
+SELECT lives_ok(
+      format(
+        $$SELECT "Publish"('test SP queue', NULL::%I)$$
+        , arg_type
+      )
+      , format(
+        $$SELECT "Publish"('test SP queue', NULL::%I)$$
+        , arg_type
+      )
+    )
+  FROM unnest('{bytea,jsonb,text}'::regtype[]) u(arg_type)
+;
+SELECT lives_ok(
+  $$SELECT consumer__register('test SP queue', 'post-NULLs')$$
+  , $$Register consumer 'post-NULLs'$$
+);
+SELECT lives_ok(
+  $$SELECT "Publish"('test SP queue', '0xdeadbeef', '{"key":"jsonb"}'::jsonb, 'text')$$
+  , $$SELECT "Publish"('test SP queue', '0xdeadbeef', '{"key":"jsonb"}'::jsonb, 'text')$$
+);
+SELECT lives_ok(
+      format(
+        $$SELECT "Publish"('test SP queue', %L::%I)$$
+        , value, datatype
+      )
+      , format(
+        $$SELECT "Publish"('test SP queue', %L::%I)$$
+        , value, datatype
+      )
+    )
+  FROM (VALUES
+    ('0xdeadbeef'::text, 'bytea'::regtype)
+    , ('{"key":"jsonb"}', 'jsonb')
+    , ('text', 'text')
+  ) v(value, datatype)
+;
+SELECT lives_ok(
+  $$SELECT consumer__register('test SP queue', 'empty')$$
+  , $$Register consumer 'empty'$$
+);
+
 
 /*
  * queue__drop()

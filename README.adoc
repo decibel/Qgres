@@ -124,8 +124,6 @@ WARNING: If you pass in data that is of type "unknown" results are not guarantee
 
 INFO: TODO: Allow a queue to specify what fields may or may not be used.
 
-NOTE: There are duplicate functions called `publish`, which can be referred to in code as `Publish` without quoting, but their use is discouraged. Eventually queues should have the option of disallowing that usage.
-
 ==== `consume({queue_name|queue_id}, consumer_name, [limit]) RETURNS entry(sequence_number, bytea, jsonb, text)`
 Consumes entries from a queue. This has no effect on other consumers.
 

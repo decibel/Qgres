@@ -20,6 +20,24 @@ CREATE TYPE queue_type AS ENUM(
   , 'Serial Remover'
 );
 
+/*
+ * Eventually we might support adding additional types to this, so best to make
+ * it a stand-alone type (and make it public). This will simplify some other
+ * code too.
+ */
+CREATE TYPE queue_entry AS(
+  bytea bytea
+  , jsonb jsonb
+  , text text
+);
+CREATE OR REPLACE FUNCTION queue_entry(
+  bytea bytea DEFAULT NULL
+  , jsonb jsonb DEFAULT NULL
+  , text text DEFAULT NULL
+) RETURNS queue_entry IMMUTABLE LANGUAGE sql AS $body$
+SELECT row($1,$2,$3)::queue_entry;
+$body$;
+
 CREATE FUNCTION _queue_type__sanitize(
   queue_type text
 ) RETURNS queue_type LANGUAGE sql STRICT STABLE AS $body$
@@ -109,6 +127,15 @@ CREATE TABLE _sp_consumer(
   , next_entry_id int     NOT NULL
 );
 CREATE TRIGGER update AFTER UPDATE OF queue_id, consumer_name ON _sp_consumer
+  FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
+;
+CREATE TABLE _sp_entry(
+  queue_id        int     NOT NULL REFERENCES _sp_entry_id -- Ensures this is an sp queue
+  , sequence_number int   NOT NULL
+  , CONSTRAINT _sp_consumer__pk_queue_id__sequence_number PRIMARY KEY( queue_id, sequence_number )
+  , entry queue_entry     NOT NULL
+);
+CREATE TRIGGER update AFTER UPDATE ON _sp_entry
   FOR EACH ROW EXECUTE PROCEDURE _tg_not_allowed()
 ;
 
@@ -344,7 +371,124 @@ COMMENT ON FUNCTION consumer__drop(
   , consumer_name _sp_consumer.consumer_name%TYPE
 ) IS $$Register a consumer on a queue.$$;
 
+/*
+ * "Publish"()
+ */
+-- This is our "base" function; all others are wrappers
+CREATE OR REPLACE FUNCTION "_Publish"(
+  queue_id _queue.queue_id%TYPE
+  , entry queue_entry
+  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+) SECURITY DEFINER LANGUAGE plpgsql AS $body$
+DECLARE
+  p_queue_id ALIAS FOR queue_id;
 
+  rowcount bigint;
+BEGIN
+  UPDATE _sp_entry_id AS sp
+    SET entry_id = entry_id + 1
+    WHERE sp.queue_id = p_queue_id
+    RETURNING entry_id - 1 -- RETURNING gives the NEW value
+    INTO sequence_number
+  ;
+  -- We make these checks the hard way to avoid the cost of starting a subtransaction
+  GET DIAGNOSTICS rowcount = ROW_COUNT;
+  CASE
+    WHEN rowcount = 1 THEN
+      NULL; -- OK
+    WHEN rowcount = 0 THEN
+      -- See if the queue even exists, and if it's an SP queue
+      DECLARE
+        r_queue queue;
+      BEGIN
+        -- This will give a good error if queue doesn't exist
+        r_queue := queue__get(p_queue_id);
+
+        IF r_queue.queue_type <> 'Serial Publisher' THEN
+          RAISE '"Publish"() may only be called on Serial Publisher queues'
+            USING ERRCODE = 'invalid_parameter_value'
+              , DETAIL = format( 'queue_id %L is type %L', p_queue_id, r_queue.queue_type )
+              , HINT = 'Perhaps you want to use the add() function instead?'
+          ;
+        ELSE
+          RAISE 'no record in _sp_entry_id for queue_id %', p_queue_id
+            USING HINT = 'This should never happen; please open an issue on GitHub.'
+          ;
+        END IF;
+      END;
+    WHEN rowcount > 1 THEN
+      RAISE 'multiple records in _sp_entry_id for queue_id %', p_queue_id
+        USING HINT = 'This should never happen; please open an issue on GitHub.'
+      ;
+    ELSE
+      RAISE EXCEPTION 'unexpected rowcount value "%"', rowcount
+        USING HINT = 'This should never happen; please open an issue on GitHub.'
+      ;
+  END CASE;
+
+  INSERT INTO _sp_entry VALUES(p_queue_id, sequence_number, entry);
+END
+$body$;
+REVOKE ALL ON FUNCTION "_Publish"(
+  queue_id _queue.queue_id%TYPE
+  , entry queue_entry
+  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+) FROM public;
+GRANT EXECUTE ON FUNCTION "_Publish"(
+  queue_id _queue.queue_id%TYPE
+  , entry queue_entry
+  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+) TO qgres__queue_insert;
+
+CREATE OR REPLACE FUNCTION "Publish"(
+  queue_id _queue.queue_id%TYPE
+  , bytea bytea
+  , jsonb jsonb
+  , text text
+  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+) LANGUAGE sql AS $body$
+SELECT "_Publish"(queue_id, queue_entry(bytea := bytea, jsonb := jsonb, text := text))
+$body$;
+CREATE OR REPLACE FUNCTION "Publish"(
+  queue_name _queue.queue_name%TYPE
+  , bytea bytea
+  , jsonb jsonb
+  , text text
+  , OUT sequence_number _sp_entry_id.entry_id%TYPE
+) LANGUAGE sql AS $body$
+SELECT "_Publish"(queue__get_id(queue_name), queue_entry(bytea := bytea, jsonb := jsonb, text := text))
+$body$;
+CREATE FUNCTION qgres_temp.build_publish(
+  first_arg text
+  , call text
+  , data_type regtype
+) RETURNS void LANGUAGE plpgsql AS $build$
+DECLARE
+  c_template CONSTANT text := $template$
+CREATE OR REPLACE FUNCTION "Publish"(
+  %1$s
+  , %3$s %3$s
+  , OUT sequence_number _sp_entry_id.entry_id%%TYPE
+) LANGUAGE sql AS $body$
+SELECT "_Publish"(%2$s, queue_entry(%3$s := %3$s))
+$body$;
+$template$;
+BEGIN
+  EXECUTE format(c_template, first_arg, call, data_type);
+END
+$build$;
+SELECT qgres_temp.build_publish( first_arg, call, data_type )
+  FROM
+  (VALUES
+      ('queue_id _queue.queue_id%TYPE'::text, 'queue_id'::text)
+      , ('queue_name _queue.queue_name%TYPE', 'queue__get_id(queue_name)')
+    ) v(first_arg, call)
+  , unnest('{bytea,jsonb,text}'::regtype[]) data_type
+;
+DROP FUNCTION qgres_temp.build_publish(text,text,regtype); 
+
+-- TODO: Switch CREATE FUNCTION to CREATE OR REPLACE
+-- TODO: s/entry_id/next_sequence_number/g
 
 DROP SCHEMA qgres_temp; 
 -- vi: expandtab ts=2 sw=2
