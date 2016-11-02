@@ -13,10 +13,10 @@
 
     "X_comment": "REQUIRED. Name of distribution.",
     "X_comment": "Note! Distribution names currently can't contain spaces.",
-    "name": "Qgres",
+    "name": "qgres",
 
     "X_comment": "REQUIRED. Version of the distribution. http://pgxn.org/spec/#version",
-    "version": "0.1.0",
+    "version": "0.1.1",
 
     "X_comment": "REQUIRED. Short description of distribution.",
     "abstract": "A simple queue for Postgres",
@@ -41,7 +41,7 @@
             "file": "sql/qgres.sql",
 
             "X_comment": "REQUIRED. Version the extension is at.",
-            "version": "0.1.0",
+            "version": "0.1.1",
 
             "X_comment": "Optional: \"abstract\": Description of the extension.",
             "abstract": "Simple queue system",
