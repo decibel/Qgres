@@ -42,4 +42,4 @@ If you have this repository checked out, you can use GNU make:
 You will need to use `CREATE EXTENSION` to load the extension into your database.
 
 == Documentation
-Full documentation is available http://pgxn.org/dist/Qgres/doc/Qgres.html[online] or see doc/Qgres.adoc.
+Full documentation is available http://pgxn.org/dist/Qgres/doc/Qgres.html[online] or see link:doc/Qgres.adoc[].
