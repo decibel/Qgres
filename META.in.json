@@ -94,7 +94,7 @@
     },
 
     "X_comment": "Unusual. \"no_index\": Files/directories that should not be indexed. http://pgxn.org/spec/#no_index",
-    "no_index": "pgxntool",
+    "no_index": {"directory": [ "pgxntool" ] },
 
     "X_comment": "Unusual. Package/tool used to generate this file.",
     "generated_by": "pgxntool https://github.com/decibel/pgxntool",
