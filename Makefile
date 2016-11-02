@@ -21,7 +21,7 @@ $(DESTDIR)$(datadir)/extension/citext.control:
 	@exit 1
 
 .PHONY: pg_acl
-pg_acl: $(DESTDIR)$(datadir)/extension/acl.control
+pg_acl: $(DESTDIR)$(datadir)/extension/pg_acl.control
 
-$(DESTDIR)$(datadir)/extension/acl.control:
+$(DESTDIR)$(datadir)/extension/pg_acl.control:
 	pgxn install --unstable pg_acl
