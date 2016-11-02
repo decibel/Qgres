@@ -13,7 +13,7 @@
 
     "X_comment": "REQUIRED. Name of distribution.",
     "X_comment": "Note! Distribution names currently can't contain spaces.",
-    "name": "qgres",
+    "name": "Qgres",
 
     "X_comment": "REQUIRED. Version of the distribution. http://pgxn.org/spec/#version",
     "version": "0.1.2",
