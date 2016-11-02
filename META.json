@@ -28,7 +28,7 @@
     "maintainer": [ "Jim Nasby <Jim.Nasby@BlueTreble.com>" ],
 
     "X_comment": "Optional. Status of distribution. Allowed values: unstable, testing, stable",
-    "release_status": "unstable",
+    "release_status": "stable",
 
     "X_comment": "REQUIRED. License(s) distribution is released under. http://pgxn.org/spec/#license",
     "license": "postgresql",
