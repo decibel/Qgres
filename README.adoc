@@ -3,7 +3,7 @@
 :toclevels: 4
 :numbered:
 
-== Another queuing system? Are you NUTS?
+== Another queuing system?
 
 What makes Qgres unique is that it is *simple*.
 
@@ -39,24 +39,18 @@ The challenge with a queue that's meant to hold workitems for later processing b
 
 .A note on syntax conventions
 ****
-To facilitate usage awareness (or context), Qgres provides different functions for each Queue Type. For example, you `"Publish"()` to SP queues, but you simple `add()` into SR queues. Using this distinctive syntax makes it easier to remember when you're coding what type of queue you're using.
-
-Of course, sometimes your code just shouldn't care what type of queue you're using. That's why there's also "agnostic" functions that will operate on either type of queue, such as `add()`. There's also case-agnostic versions (ie: `publish()`) so that you don't have to double-quote if that bothers you.
-
-NOTE: Technically, those functions are lower-case, but since Postgres will force all identifiers to lower-case unless they're double-quoted you can always refer to an object called `publish` using any case you want, such as `Publish` or even `PUBLISH`. That's not to be confused with `"Publish"()`, which is in fact a mixed-case identifier and therefor must always be quoted.
-
-INFO: In the future, it would be nice to allow queues to restrict which form of functions is allowed or not.
+To facilitate usage awareness (or context), Qgres provides different functions for each Queue Type. For example, you `"Publish"()` to SP queues, but you simply `add()` into SR queues. Using this distinctive syntax makes it easier to remember when you're coding what type of queue you're using.
 ****
 
 == Queue entries
 Queue entries can contain text, binary (bytea), and/or JSONB data. The queue storage table has all 3 fields, so any combination may be used on any given entry.
 
-INFO: In the future Qgres will also support queuing a single *arbitrary* type per entry, or an array of a single type.
+NOTE: In the future I hope to add support for custom types.
 
 == Performance
 Qgres is not meant to be a high-performance queuing system. Currently it simply stores all entries in a single table, so if you push it too hard you'll end up with perforance problems. How much performance you can get will depend on hardware, the rate of `add()` and `consume()` (`"Publish"()` and `"Remove"()` tend to be self-limiting), the number of unseen entries in all the queues, and whether the database has any long-running transactions (because those interfere with vacuum). Decent hardware might be able to do hundreds of entries per second (and a much higher burst, at least on SR queues), but thousands per second is probably asking for trouble.
 
-INFO: There are some storage tricks that can be added in the future to improve performance.
+NOTE: There are some storage tricks that can be added in the future to improve performance.
 
 == LISTEN/NOTIFY
 Not currently supported, but probably in the future.
@@ -70,8 +64,6 @@ There are 3 roles defined for queue management and usage. These should be grante
 `qgres__queue_delete`:: Grants EXECUTE on event consumption functions
 
 === Queue Management Commands
-INFO: In the future there will be a separate permission for queue management. For now, only a superuser can run certain commands.
-
 ==== `queue__create(queue_name, queue_type) RETURNS queue_id int`
 Creates a new queue. Returned ID is guaranteed immutable for the life of the queue. *Queue manager role only.*
 
@@ -85,8 +77,6 @@ queue_name:: name of queue
 queue_id:: id of queue
 [force]:: if true, drop the queue even if it still has entries
 
-INFO: TODO: `queue__rename()`
-
 ==== `queue__get(queue_name) RETURNS queue`
 ==== `queue__get(queue_id) RETURNS queue`
 ==== `queue__get_id(queue_name) RETURNS queue_id`
@@ -98,7 +88,7 @@ See also: VIEW `queue`.
 These commands *only* work on SP queues.
 
 ==== `consumer__register(queue_name, consumer_name)`
-Registers a new consumer. SP queues track what entries have been seen on a consumer-by-consumer basis. Entries will not be removed until seen by *all* registered consumers, so don't leave consumers un-attended!
+Registers a new consumer. SP queues track what entries have been seen on a consumer-by-consumer basis. Entries will not be removed until seen by *all* registered consumers, so don't leave consumers un-attended! *Queue delete role only.*
 
 queue_name:: Name of queue, case-insensitive.
 consumer_name:: Name for consumer, case-insensitive.
@@ -106,7 +96,7 @@ consumer_name:: Name for consumer, case-insensitive.
 NOTE: Unlike queues, there doesn't seem to be much need for renaming consumers, or providing an immutable ID. Drop me a line if you have a use case for it.
 
 ==== `consumer__drop(queue_name, consumer_name)`
-Drops a consumer.
+Drops a consumer. *Queue delete role only.*
 
 ==== `"Publish"({queue_name|queue_id}, [bytea], [jsonb], [text]) RETURNS sequence_number`
 ==== `"Publish"({queue_name|queue_id}, {bytea|jsonb|text}) RETURNS sequence_number`
@@ -118,14 +108,14 @@ The first version accepts any combination of bytea, jsonb or text, all of which 
 
 The second version accepts a single input value, determined by input type.
 
-See also: `insert()`
+*Queue insert role only.*
 
 WARNING: If you pass in data that is of type "unknown" results are not guaranteed. If you're not coming from a pre-defined field or variable, you should cast your input.
 
-INFO: TODO: Allow a queue to specify what fields may or may not be used.
+TODO: Allow a queue to specify what fields may or may not be used.
 
 ==== `consume({queue_name|queue_id}, consumer_name, [limit]) RETURNS entry(sequence_number, bytea, jsonb, text)`
-Consumes entries from a queue. This has no effect on other consumers.
+Consumes entries from a queue. This has no effect on other consumers. *Queue delete role only.*
 
 {queue_name|queue_id}:: Queue name (case-insensitive) or queue ID
 consumer_name:: Consumer name (case-insensitive)
@@ -140,7 +130,7 @@ These commands *only* work on SR queues.
 
 ==== `add({queue_name|queue_id}, [bytea], [jsonb], [text]) RETURNS void`
 ==== `add({queue_name|queue_id}, {bytea|jsonb|text}) RETURNS void`
-Creates a new entry in the queue. Because there is no guaranteed ordering of SR queues no sequence number is returned.
+Creates a new entry in the queue. Because there is no guaranteed ordering of SR queues no sequence number is returned. *Queue insert role only.*
 
 Both versions accept `queue_name` *OR* `queue_id`.
 
@@ -148,14 +138,12 @@ The first version accepts any combination of bytea, jsonb or text, all of which 
 
 The second version accepts a single input value, determined by input type.
 
-See also: `insert()`
-
 WARNING: If you pass in data that is of type "unknown" results are not guaranteed. If you're not coming from a pre-defined field or variable, you should cast your input.
 
-INFO: TODO: Allow a queue to specify what fields may or may not be used.
+TODO: Allow a queue to specify what fields may or may not be used.
 
 ==== `"Remove"({queue_name|queue_id}, [limit]) RETURNS entry(bytea, jsonb, text)`
-*Removes* and returns entries from the queue. *There is no guaranteed ordering.* Under some conditions you might get entries back in the order in which they were inserted, but that should never be counted on. This is especially likely to happen if there are very few entries in the queue, such as when you're testing.
+*Removes* and returns entries from the queue. *There is no guaranteed ordering.* Under some conditions you might get entries back in the order in which they were inserted, but that should never be counted on. This is especially likely to happen if there are very few entries in the queue, such as when you're testing. *Queue delete role only.*
 
 WARNING: There is no guaranteed blocking between multiple callers of this function. Theoretically, if Postgres happens to chose different plans separate backends could execute at the same time. A given queue entry is guaranteed to only be seen once though.
 
