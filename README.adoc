@@ -1,10 +1,9 @@
 = Qgres: A *simple* queuing system
 
-[![PGXN version](https://badge.fury.io/pg/qgres.svg)](https://badge.fury.io/pg/qgres)
-[![Build Status](https://travis-ci.org/decibel/qgres.png)](https://travis-ci.org/decibel/qgres)
+image:https://badge.fury.io/pg/qgres.svg["PGXN version",link="https://badge.fury.io/pg/Qgres"]
+image:https://travis-ci.org/decibel/Qgres.png["Build Status",link="https://travis-ci.org/decibel/Qgres"]
 
 == Another queuing system?
-
 What makes Qgres unique is that it is *simple*.
 
 What makes most queuing systems complex is they allow for concurrent publishers
@@ -43,4 +42,4 @@ If you have this repository checked out, you can use GNU make:
 You will need to use `CREATE EXTENSION` to load the extension into your database.
 
 == Documentation
-Full documentation is available http://pgxn.org/dist/qgres/doc/qgres.html[online] or see doc/qgres.adoc.
+Full documentation is available http://pgxn.org/dist/Qgres/doc/Qgres.html[online] or see doc/Qgres.adoc.
