@@ -161,6 +161,3 @@ WARNING: There is no guaranteed blocking between multiple callers of this functi
 
 {queue_name|queue_id}:: Queue name (case-insensitive) or queue ID
 [limit]:: If specified, `"Remove"()` will return multiple entries at once.
-
-NOTE: There are duplicate functions called `remove`, which can be referred to in code as `Remove` without quoting, but their use is discouraged. Eventually queues should have the option of disallowing that usage.
-
