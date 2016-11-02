@@ -47,7 +47,7 @@
             "abstract": "Simple queue system",
 
             "X_comment": "Optional: \"docfile\": filesystem path to document file for extension.",
-            "docfile": "",
+            "docfile": "doc/Qgres.adoc",
 
             "X_end": ""
         }
